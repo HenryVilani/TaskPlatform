@@ -1,11 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import argon2 from "argon2";
 import { type ILoginUserOutDTO } from "src/application/dtos/output/loginUser.out.dto";
-import { UserNotFound, WrongCredentials } from "src/application/erros/auth.errors";
+import { WrongCredentials } from "src/application/erros/auth.errors";
 import { type IAuthRepository } from "src/application/repositories/auth.repository";
 import { type IUserRepository } from "src/application/repositories/user.respotory";
-import { Email, Password } from "src/domain/user.domain";
+import { Email } from "src/domain/user.domain";
 
 @Injectable()
 export class LoginUseCase {

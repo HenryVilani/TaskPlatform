@@ -5,7 +5,7 @@ import { DateTime } from "luxon";
 import { type ITaskRepository } from "src/application/repositories/task.repository";
 import { ITokenDataInDTO } from "src/application/dtos/input/token.in.dto";
 import { type IUserRepository } from "src/application/repositories/user.respotory";
-import { InvalidSession } from "src/application/erros/auth.errors";
+import { InvalidToken } from "src/application/erros/auth.errors";
 
 @Injectable()
 export class CreateTaskUseCase {
@@ -18,7 +18,7 @@ export class CreateTaskUseCase {
 	async execute(name: string, token: ITokenDataInDTO): Promise<Task> {
 
 		const user = await this.userRepository.findById(token.sub);
-		if (!user) throw new InvalidSession();
+		if (!user) throw new InvalidToken();
 
 		const task = new Task(user, ulid(), await new TaskName(name).validate(), "", DateTime.now(), DateTime.now(), null);
 		return await this.taskRepository.create(user, task);

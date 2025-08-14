@@ -4,13 +4,15 @@ import { TaskSchema } from "../schemas/task.schema";
 import { ITaskRepository } from "src/application/repositories/task.repository";
 import { Task, TaskName, TaskSegment } from "src/domain/task.domain";
 import { DateTime } from "luxon";
-import { User } from "src/domain/user.domain";
-
+import { Email, Password, User } from "src/domain/user.domain";
+import { UserSchema } from "../schemas/user.schema";
+import { UserNotFound } from "src/application/erros/auth.errors";
+import { PostgreSQLDataSource } from "./postgre.datasource";
 
 @Injectable()
-export class TaskSQLiteImpl implements ITaskRepository {
+export class TaskPostgreImpl implements ITaskRepository {
 
-	private taskTable = MainDataSource.getRepository(TaskSchema);
+	private taskTable = PostgreSQLDataSource.getRepository(TaskSchema);
 
 	async create(user: User, task: Task): Promise<Task> {
 		

@@ -1,15 +1,15 @@
 
 export abstract class BaseError extends Error {
 
-	responseMessage: string;
+	id: string;
 
 	constructor(
-		responseMessage: string,
+		id: string,
 		message: string,
 		public readonly statusCode: number
 	) {
 		super(message);
 		this.name = this.constructor.name;
-		this.responseMessage = responseMessage;
+		this.id = id;
 	}
 }

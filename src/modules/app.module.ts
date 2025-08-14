@@ -4,7 +4,7 @@ import { MainV1Module } from './v1/main.module';
 @Module({
 
 	imports: [
-		MainV1Module
+		MainV1Module,
 	],
 	controllers: [],
 	providers: []

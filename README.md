@@ -6,6 +6,7 @@ TaskPlatform é um projeto backend de uma API REST para uma plataforma de tarefa
 
 - NodeJS (Typescript)
 - NestJS
+- TypeORM
 - Docker
 
 ### Banco de Dados

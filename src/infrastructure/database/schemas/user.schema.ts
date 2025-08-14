@@ -14,6 +14,9 @@ export class UserSchema {
 	@Column()
 	password: string;
 
+	@Column()
+	type: string;
+
 	@OneToMany(() => TaskSchema, (taks) => taks.user)
 	tasks: TaskSchema[];
 

@@ -3,11 +3,11 @@ import { ulid, isValid } from "ulid";
 import { Task, TaskName } from "src/domain/task.domain";
 import { DateTime } from "luxon";
 import { type ITaskRepository } from "src/application/repositories/task.repository";
-import { InvalidId, InvalidSession } from "src/application/erros/auth.errors";
+import { InvalidId, InvalidToken } from "src/application/erros/auth.errors";
 import { ITokenDataInDTO } from "src/application/dtos/input/token.in.dto";
 import { type IUserRepository } from "src/application/repositories/user.respotory";
-import { IInTaskControllerDTO } from "src/interfaces/http/v1/dtos/task.dto";
 import { TaskNotFound } from "src/application/erros/task.error";
+import { TaskUpdateDTO } from "src/interfaces/http/v1/dtos/task.dto";
 
 @Injectable()
 export class UpdateTaskUseCase {
@@ -17,14 +17,14 @@ export class UpdateTaskUseCase {
 		@Inject("IUserRepository") private readonly userRepository: IUserRepository
 	) {}
 
-	async execute(taskData: IInTaskControllerDTO, token: ITokenDataInDTO): Promise<Task> {
+	async execute(taskData: TaskUpdateDTO, token: ITokenDataInDTO): Promise<Task> {
 
 		if (!isValid(taskData.id)) throw new InvalidId();
 
 		const user = await this.userRepository.findById(token.sub);
-		if (!user) throw new InvalidSession();
+		if (!user) throw new InvalidToken();
 
-		const task = await this.taskRepository.findTaskById(user, taskData.id);
+		const task = await this.taskRepository.findById(user, taskData.id);
 		if (!task) throw new TaskNotFound();
 	
 

@@ -13,7 +13,7 @@ import { Test, TestingModule } from "@nestjs/testing"
 import { WrongCredentials } from "src/application/erros/auth.errors";
 import { LoginUseCase } from "src/application/use-cases/auth/login.usecase";
 import { RegisterUserUseCase } from "src/application/use-cases/auth/register.usecase";
-import { AuthJWTImpl } from "src/infrastructure/auth/jwtAuth/auth.repository.impl";
+import { JWTImpl } from "src/infrastructure/auth/jwt/jwt.repository.impl";
 import { UserInMemoryRepository } from "src/infrastructure/database/inMemory/user.repository.impl";
 
 
@@ -34,7 +34,7 @@ describe('Login User UseCase', () => {
 				},
 				{
 					provide: "IAuthRepository",
-					useClass: AuthJWTImpl
+					useClass: JWTImpl
 				},
 				RegisterUserUseCase
 			],

@@ -10,7 +10,7 @@
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { Test, TestingModule } from "@nestjs/testing"
-import { InvalidSession } from "src/application/erros/auth.errors";
+import { InvalidToken } from "src/application/erros/auth.errors";
 import { DeleteAccountUseCase } from "src/application/use-cases/account/delete.usecase";
 import { RegisterUserUseCase } from "src/application/use-cases/auth/register.usecase";
 import { UserInMemoryRepository } from "src/infrastructure/database/inMemory/user.repository.impl";
@@ -52,7 +52,7 @@ describe('Delete User UseCase', () => {
 	it("Refuse delete user with wrong token", async () => {
 
 		const user = await registerUserUseCase.execute("user_03@gmail.com", "12345678");
-		await expect(deleteAccountUseCase.execute({sub: "__WRONG__", email: user.email})).rejects.toThrow(InvalidSession);
+		await expect(deleteAccountUseCase.execute({sub: "__WRONG__", email: user.email})).rejects.toThrow(InvalidToken);
 
 	});
 

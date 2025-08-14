@@ -1,22 +1,22 @@
+import { ApiProperty } from "@nestjs/swagger";
 
-export class StatusOutDTO<T> {
 
-	constructor(private message: string, private data?: T) {}
+export class StatusDTO<T> {
 
-	toDict() {
+	
+	@ApiProperty({ 
+		description: 'Id of response status' 
+	})
+	status: string;
 
-		return {
+	@ApiProperty({ 
+		description: 'Data of response status'
+	})
+	data?: T;
 
-			status: {
-
-				message: this.message
-
-			},
-
-			data: this.data
-
-		}
-
+	constructor(status: string, data?: T) {
+		this.status = status;
+		this.data = data;
 	}
 
 }

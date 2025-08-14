@@ -1,19 +1,19 @@
-import { Body, Controller, Get, Logger, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Logger, Post, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { type Request } from "express";
 import { ITokenDataInDTO } from "../../../application/dtos/input/token.in.dto";
-import { InvalidSession } from "src/application/erros/auth.errors";
-import { StatusOutDTO } from "src/application/dtos/output/status.out.dto";
+import { InvalidToken } from "src/application/erros/auth.errors";
+import { StatusDTO } from "src/application/dtos/output/status.out.dto";
 import { CreateTaskUseCase } from "src/application/use-cases/tasks/create.usecase";
 import { UpdateTaskUseCase } from "src/application/use-cases/tasks/update.usecase";
 import { DeleteTaskUseCase } from "src/application/use-cases/tasks/delete.usecase";
-import { type ICreateTaskControllerDTO, type IOutTaskControllerDTO, type IInTaskControllerDTO, type IInDelteTaskControllerDTO } from "./dtos/task.dto";
 import { ListTaskUseCase } from "src/application/use-cases/tasks/list.usecase";
 import { BaseError } from "src/application/erros/base.errors";
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { documentation_CreateTaskControllerDTO, documentation_IInDelteTaskControllerDTO, documentation_IInTaskControllerDTO } from "./documentation/dto.input";
+import { ApiBody, ApiExtraModels, ApiOperation, ApiResponse, ApiTags, getSchemaPath } from "@nestjs/swagger";
+import { TaskCreateDTO, TaskDTO, TaskIdentifierDTO, TaskFetchSegmentDTO, TaskUpdateDTO, TaskReturnSegmentDTO } from "./dtos/task.dto";
 
-//@ApiTags("Task")
+@ApiExtraModels(StatusDTO, TaskDTO)
+@ApiTags("Task")
 @Controller("task")
 export class TaskController {
 
@@ -21,44 +21,72 @@ export class TaskController {
 		private readonly createTaskUseCase: CreateTaskUseCase,
 		private readonly updateTaskUseCase: UpdateTaskUseCase,
 		private readonly deleteTaskUseCase: DeleteTaskUseCase,
-		private readonly listTaskUseCase: ListTaskUseCase,
+		private readonly listTaskUseCase: ListTaskUseCase
 	) {}
-
 
 	@UseGuards(AuthGuard('jwt'))
 	@Post("create")
-	@ApiOperation({ summary: "Create a new task" })
-	@ApiBody({ type: documentation_CreateTaskControllerDTO })
-	@ApiResponse({ status: 201, description: "Task successfully created", type: StatusOutDTO })
-	@ApiResponse({ status: 401, description: "Invalid token or expired session", type: InvalidSession })
-	@ApiResponse({ status: 500, description: "Unknown error" })
-	async createTask(@Req() request: Request, @Body() body: ICreateTaskControllerDTO) {
+	@ApiOperation({ 
+		summary: "Create",
+		description: "Create a task"
+	})
+	@ApiResponse({
+		status: 200,
+		description: "Return the created task",
+		example: {
+			status: "created",
+			data: {
+				id: "01H4ZK8T0A7E4VY5M7C2Q2XK8",
+				name: "Task 01",
+				content: "Homework",
+				createdAt: "2025-08-13T12:34:56.789Z",
+				updatedAt: "2025-08-13T12:34:56.789Z",
+				notifyAt: "2025-08-13T12:34:56.789Z"
+			}
+		},
+		schema: {
+			allOf: [
+				{ $ref: getSchemaPath(StatusDTO) },
+				{
+					properties: {
+						data: { $ref: getSchemaPath(TaskDTO)}
+					}
+				}
+			]
+		}
+	})
+	@ApiResponse({
+		status: 400,
+		description: "Invalid Session",
+		example: new StatusDTO("invalid_token"),
+		type: StatusDTO
+	})
+	@ApiResponse({
+		status: 401,
+		description: "Unauthorized",
+		example: new StatusDTO("unauthorized"),
+		type: StatusDTO
+	})
+	@ApiBody({ type: TaskCreateDTO })
+	async createTask(@Req() request: Request, @Body() body: TaskCreateDTO): Promise<StatusDTO<TaskDTO>> {
 
 		try {
 
 			const task = await this.createTaskUseCase.execute(body.name, request.user as ITokenDataInDTO);
 
-			return new StatusOutDTO<IOutTaskControllerDTO>("created", {
-				id: task.id,
-				name: task.name.validatedName,
-				content: task.content,
-				createdAt: task.createdAt.toISO()!,
-				updatedAt: task.updatedAt.toISO()!,
-				notifyAt: task.notifyAt?.toISO() ?? null,
-				
-			})
+			return new StatusDTO<TaskDTO>("created", TaskDTO.fromTask(task));
 			
 
 		}catch (error) {
 
-			if (error instanceof InvalidSession) {
+			if (error instanceof InvalidToken) {
 
-				return new StatusOutDTO(error.responseMessage).toDict();
+				return new StatusDTO(error.id);
 
 			}else {
 
 				Logger.log(error)
-				return new StatusOutDTO("unknown_error").toDict();
+				return new StatusDTO("unknown_error");
 
 			}
 
@@ -69,12 +97,60 @@ export class TaskController {
 
 	@UseGuards(AuthGuard('jwt'))
 	@Post("update")
-	@ApiOperation({ summary: "Update an existing task" })
-	@ApiBody({ type: documentation_IInTaskControllerDTO })
-	@ApiResponse({ status: 200, description: "Task successfully updated", type: StatusOutDTO })
-	@ApiResponse({ status: 401, description: "Invalid token or expired session" })
-	@ApiResponse({ status: 500, description: "Unknown error" })
-	async updateTask(@Req() request: Request, @Body() body: IInTaskControllerDTO) {
+	@ApiOperation({ 
+		summary: "Update",
+		description: "Update an existing task"
+	})
+	@ApiBody({ type: TaskUpdateDTO })
+	@ApiResponse({ 
+		status: 200, 
+		description: "Task successfully updated", 
+		example: {
+			status: "created",
+			data: {
+				id: "01H4ZK8T0A7E4VY5M7C2Q2XK8",
+				name: "Task 01",
+				content: "Homework",
+				createdAt: "2025-08-13T12:34:56.789Z",
+				updatedAt: "2025-08-13T12:34:56.789Z",
+				notifyAt: "2025-08-13T12:34:56.789Z"
+			}
+		},
+		schema: {
+			allOf: [
+				{ $ref: getSchemaPath(StatusDTO) },
+				{
+					properties: {
+						data: { $ref: getSchemaPath(TaskDTO)}
+					}
+				}
+			]
+		}
+	})
+	@ApiResponse({ 
+		status: 400, 
+		description: "Error", 
+		type: StatusDTO<string>, 
+		examples: {
+			"invalid_token": {
+				summary: "Invalid Session",
+				value: new StatusDTO("invalid_token") 
+			},
+			"task_not_found": {
+				summary: "Task not found",
+				value: new StatusDTO<string>("task_not_found")
+			}
+			
+		},
+
+	})
+	@ApiResponse({
+		status: 401,
+		description: "Unauthorized",
+		example: new StatusDTO("unauthorized"),
+		type: StatusDTO
+	})
+	async updateTask(@Req() request: Request, @Body() body: TaskUpdateDTO): Promise<StatusDTO<TaskDTO>> {
 
 		try {
 
@@ -82,27 +158,19 @@ export class TaskController {
 				...body
 			}, request.user as ITokenDataInDTO);
 
-			return new StatusOutDTO<IOutTaskControllerDTO>("updated", {
-				id: task.id,
-				name: task.name.validatedName,
-				content: task.content,
-				createdAt: task.createdAt.toISO()!,
-				updatedAt: task.updatedAt.toISO()!,
-				notifyAt: task.notifyAt?.toISO() ?? null,
-				
-			});
+			return new StatusDTO<TaskDTO>("updated", TaskDTO.fromTask(task));
 			
 
 		}catch (error) {
 
-			if (error instanceof InvalidSession) {
+			if (error instanceof InvalidToken) {
 
-				return new StatusOutDTO(error.responseMessage).toDict();
+				return new StatusDTO(error.id);
 
 			}else {
 
 				Logger.log(error)
-				return new StatusOutDTO("unknown_error").toDict();
+				return new StatusDTO("unknown_error");
 
 			}
 
@@ -112,28 +180,58 @@ export class TaskController {
 
 	@UseGuards(AuthGuard('jwt'))
 	@Post("delete")
-	@ApiOperation({ summary: "Delete a task" })
-	@ApiBody({ type: documentation_IInDelteTaskControllerDTO })
-	@ApiResponse({ status: 200, description: "Task successfully deleted", type: StatusOutDTO })
-	@ApiResponse({ status: 401, description: "Invalid token or expired session" })
-	@ApiResponse({ status: 500, description: "Unknown error" })
-	async deleteTask(@Req() request: Request, @Body() body: IInDelteTaskControllerDTO) {
+	@ApiOperation({ 
+		summary: "Delete",
+		description: "Delete a task"
+	})
+	@ApiBody({ type: TaskIdentifierDTO })
+	@ApiResponse({ 
+		status: 200,
+		description: "Task successfully deleted",
+		example: {
+			status: "deleted"
+		}
+	})
+	@ApiResponse({ 
+		status: 400, 
+		description: "Error", 
+		type: StatusDTO<string>, 
+		examples: {
+			"invalid_token": {
+				summary: "Invalid Session",
+				value: new StatusDTO("invalid_token") 
+			},
+			"task_not_found": {
+				summary: "Task not found",
+				value: new StatusDTO("task_not_found")
+			}
+			
+		},
+
+	})
+	@ApiResponse({
+		status: 401,
+		description: "Unauthorized",
+		example: new StatusDTO("unauthorized"),
+		type: StatusDTO
+	})
+	async deleteTask(@Req() request: Request, @Body() body: TaskIdentifierDTO): Promise<StatusDTO<void>> {
 
 		try {
 
-			const task = await this.deleteTaskUseCase.execute(body.id, request.user as ITokenDataInDTO);
+			await this.deleteTaskUseCase.execute(body.id, request.user as ITokenDataInDTO);
 			
+			return new StatusDTO("deleted");
 
 		}catch (error) {
 
 			if (error instanceof BaseError) {
 
-				return new StatusOutDTO(error.responseMessage).toDict();
+				return new StatusDTO(error.id);
 
 			}else {
 
-				Logger.log(error)
-				return new StatusOutDTO("unknown_error").toDict();
+				return new StatusDTO("unknown_error");
 
 			}
 
@@ -142,39 +240,81 @@ export class TaskController {
 	}
 
 	@UseGuards(AuthGuard('jwt'))
-	@Get("list")
-	async getAllTasks(@Req() request: Request) {
+	@Post("list")
+	@ApiOperation({ 
+		summary: "List",
+		description: "List tasks"
+	})
+	@ApiResponse({ 
+		status: 200,
+		description: "Task retrived successfully",
+		example: {},
+		schema: {
+			allOf: [
+				{ $ref: getSchemaPath(StatusDTO) },
+				{
+					properties: {
+						data: { 
+							properties: {
+
+								tasks: {
+									type: "array",
+									items: { $ref: getSchemaPath(TaskDTO) }
+	
+								},
+								next: {
+									type: "string"
+								},
+								previous: {
+									type: "string",
+									nullable: true
+								}
+
+							} 
+						},
+					}
+				}
+			]
+		}
+	})
+	@ApiResponse({ 
+		status: 400, 
+		description: "Error", 
+		type: StatusDTO<string>, 
+		examples: {
+			"invalid_token": {
+				summary: "Invalid Session",
+				value: new StatusDTO("invalid_token") 
+			},
+			
+		},
+
+	})
+	@ApiResponse({
+		status: 401,
+		description: "Unauthorized",
+		example: new StatusDTO("unauthorized"),
+		type: StatusDTO
+	})
+	async getAllTasks(@Req() request: Request, @Body() body: TaskFetchSegmentDTO): Promise<StatusDTO<TaskReturnSegmentDTO>> {
 
 		try {
 
-			const tasks = await this.listTaskUseCase.execute(request.user as ITokenDataInDTO);
+			let segment = await this.listTaskUseCase.execute(body.limit, body.cursor, request.user as ITokenDataInDTO);
 
-			return tasks.map(task => {
-
-				return {
-
-					id: task.id,
-					name: task.name.validatedName,
-					content: task.content,
-					createdAt: task.createdAt.toISO()!,
-					updatedAt: task.updatedAt.toISO()!,
-					notifyAt: task.notifyAt ? task.notifyAt.toISO()! : null
-
-				} as IOutTaskControllerDTO;
-
-			})
+			return new StatusDTO<TaskReturnSegmentDTO>("tasks", TaskReturnSegmentDTO.fromSegment(segment));
 
 
 		}catch (error) {
 
 			if (error instanceof BaseError) {
 
-				return new StatusOutDTO(error.responseMessage).toDict();
+				return new StatusDTO(error.id);
 
 			}else {
 
 				Logger.log(error)
-				return new StatusOutDTO("unknown_error").toDict();
+				return new StatusDTO("unknown_error");
 
 			}
 

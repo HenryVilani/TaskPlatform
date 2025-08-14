@@ -3,7 +3,7 @@ import { isValid } from "ulid";
 import { Task, TaskName } from "src/domain/task.domain";
 import { DateTime } from "luxon";
 import { type ITaskRepository } from "src/application/repositories/task.repository";
-import { InvalidId, UserNotFound, InvalidSession } from "src/application/erros/auth.errors";
+import { InvalidId, UserNotFound, InvalidToken } from "src/application/erros/auth.errors";
 import { ITokenDataInDTO } from "src/application/dtos/input/token.in.dto";
 import { TaskNotFound } from "src/application/erros/task.error";
 import { type IUserRepository } from "src/application/repositories/user.respotory";
@@ -22,10 +22,10 @@ export class DeleteTaskUseCase {
 
 		// get user from DB
 		const user = await this.userRepository.findById(token.sub);
-		if (!user) throw new UserNotFound();
+		if (!user) throw new InvalidToken();
 
 		// get task from DB
-		const task = await this.taskRepository.findTaskById(user, id);
+		const task = await this.taskRepository.findById(user, id);
 		if (!task) throw new TaskNotFound();
 
 		this.taskRepository.delete(user, task);

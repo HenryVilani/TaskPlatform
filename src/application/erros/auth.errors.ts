@@ -50,11 +50,12 @@ export class WrongCredentials extends BaseError {
 
 }
 
-export class InvalidSession extends BaseError {
+export class InvalidToken extends BaseError {
 
 	constructor() {
 
-		super("wrong_session", "wrong_session", 400);
+		super("invalid_token", "invalid_token", 400);
+
 
 	}
 

@@ -3,28 +3,41 @@ import { AuthModule } from './auth.module';
 import { AccountModule } from './account.module';
 import { TasksModule } from './tasks.module';
 import { RouterModule } from '@nestjs/core';
+import { DatabaseModule } from './database.module';
+import { DataSource } from 'typeorm';
 
 
 
 @Module({
 
 	imports: [
+		AuthModule,
+		DatabaseModule,
+		AccountModule,
+		TasksModule,
 		RouterModule.register([
 			{
 				path: "v1",
-				module: AccountModule
+				children: [
+					{
+						path: "",
+						module: AccountModule
+					},
+					{
+						path: "",
+						module: AuthModule
+					},
+					{
+						path: "",
+						module: TasksModule
+					}
+
+				]
 			},
-			{
-				path: "v1",
-				module: AuthModule
-			},
-			{
-				path: "v1",
-				module: TasksModule
-			}
 		]),
 	],
 	controllers: [],
-	providers: []
+	providers: [],
+	exports: [AuthModule, AccountModule, TasksModule]
 })
 export class MainV1Module {}

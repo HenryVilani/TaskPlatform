@@ -22,6 +22,12 @@ export class TaskSchema {
 	@Column({type: "text", nullable: true})
 	notify_at: string | null;
 
+	@Column({type: "text", nullable: true})
+	notified: boolean | null;
+
+	@Column({type: "text", nullable: true})
+	notify_type: string;
+
 	@ManyToOne(() => UserSchema, (user) => user.tasks, {onDelete: "CASCADE"})
 	@JoinColumn({name: "user_id"})
 	user: UserSchema;

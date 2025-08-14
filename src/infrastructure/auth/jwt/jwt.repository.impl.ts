@@ -1,18 +1,17 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { ExecutionContext, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { IAuthRepository, UserFlags } from "src/application/repositories/auth.repository";
 import { type IUserRepository } from "src/application/repositories/user.respotory";
 import { Password, User } from "src/domain/user.domain";
 import argon2 from "argon2"
-import { JwtService } from "@nestjs/jwt";
+import { StatusDTO } from "src/application/dtos/output/status.out.dto";
+import jsonwebtoken from "jsonwebtoken";
+import { InvalidToken } from "src/application/erros/auth.errors";
 
 
 @Injectable()
-export class AuthJWTImpl implements IAuthRepository {
+export class JWTImpl implements IAuthRepository {
 
-	constructor(
-		@Inject("IUserRepository") private userRepository: IUserRepository,
-		private jwtService: JwtService
-	) {}
+	private readonly secret = process.env.JWT_SECRET || "secret";
 
 	async authenticate(user: User, tryPassword: string): Promise<boolean> {
 		
@@ -43,8 +42,23 @@ export class AuthJWTImpl implements IAuthRepository {
 
 		}
 
-		return this.jwtService.sign(payload);
+		return jsonwebtoken.sign(payload, this.secret)
 
 	}
+
+	validateToken(token: string): any {
+		
+		try {
+			
+			return jsonwebtoken.verify(token, this.secret);
+			
+		}catch (error) {
+
+			throw new InvalidToken();
+
+		}
+
+	}
+	
 
 }

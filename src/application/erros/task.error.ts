@@ -20,3 +20,12 @@ export class TaskNotFound extends BaseError {
 
 }
 
+export class TaskLimitExceeded extends BaseError {
+
+	constructor() {
+
+		super("task_limit_exceeded", "task_limit_exceeded", 400);
+
+	}
+
+}

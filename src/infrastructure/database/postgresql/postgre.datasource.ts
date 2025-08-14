@@ -2,11 +2,11 @@
 import { DataSource } from "typeorm";
 import { UserSchema } from "../schemas/user.schema";
 import { TaskSchema } from "../schemas/task.schema";
-import { Logger } from "@nestjs/common";
+import { DataSourceOptions } from "typeorm";
 
-Logger.log(process.env.POSTGRES_USER)
 
-export const PostgreSQLDataSource = new DataSource({
+export const PostgreSQLConfig = {
+	
 	type: "postgres",
 	host: process.env.POSTGRES_HOST,
 	username: process.env.POSTGRES_USER,
@@ -16,5 +16,7 @@ export const PostgreSQLDataSource = new DataSource({
 	logging: false,
 	entities: [UserSchema, TaskSchema]
 
-})
+}
+
+export const PostgreSQLDataSource = new DataSource(PostgreSQLConfig as DataSourceOptions);
 

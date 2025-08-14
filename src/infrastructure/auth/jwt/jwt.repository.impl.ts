@@ -23,13 +23,7 @@ export class JWTImpl implements IAuthRepository {
 
 	async authorize(user: User, flag: UserFlags): Promise<boolean> {
 		
-		if (flag == "USER") {
-
-			return true;
-
-		}
-
-		return false;
+		return user.type == flag;
 
 	}
 

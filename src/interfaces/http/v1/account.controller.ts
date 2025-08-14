@@ -10,6 +10,7 @@ import { IAccountOutDTO } from "./dtos/account.dtos";
 import { BaseError } from "src/application/erros/base.errors";
 import { ApiExtraModels, ApiOperation, ApiResponse, getSchemaPath } from "@nestjs/swagger";
 import { UserAuthDTO } from "./dtos/auth.dtos";
+import { JWTGuard } from "src/infrastructure/auth/jwt/jwt.guard";
 
 @ApiExtraModels(StatusDTO, UserAuthDTO)
 @Controller("account")
@@ -20,7 +21,7 @@ export class AccoutController {
 		private readonly infoAccountUseCase: InfoAccountUseCase
 	) {}
 
-	@UseGuards(AuthGuard('jwt'))
+	@UseGuards(JWTGuard)
     @Get("me")
 	@ApiOperation({ summary: "Me" })
 	@ApiResponse({ 
@@ -88,7 +89,7 @@ export class AccoutController {
 
     }
 
-	@UseGuards(AuthGuard('jwt'))
+	@UseGuards(JWTGuard)
 	@Post("delete")
 	async deleteAccount(@Req() request: Request) {
 

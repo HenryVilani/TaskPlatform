@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { MainDataSource } from "../datasource";
 import { TaskSchema } from "../schemas/task.schema";
 import { ITaskRepository } from "src/application/repositories/task.repository";
-import { Task, TaskName, TaskSegment } from "src/domain/task.domain";
+import { Task, TaskName, TaskNotifyType, TaskSegment } from "src/domain/task.domain";
 import { DateTime } from "luxon";
 import { Email, Password, User } from "src/domain/user.domain";
 import { UserSchema } from "../schemas/user.schema";
@@ -33,7 +33,9 @@ export class TaskPostgreImpl implements ITaskRepository {
 			task.content,
 			DateTime.now(),
 			DateTime.now(),
-			task.notifyAt
+			task.notifyAt,
+			task.notified,
+			task.notifyType
 		);
 
 	}
@@ -60,7 +62,9 @@ export class TaskPostgreImpl implements ITaskRepository {
 			task.content,
 			DateTime.now(),
 			DateTime.now(),
-			task.notifyAt
+			task.notifyAt,
+			task.notified,
+			task.notifyType
 		);
 
 	}
@@ -81,7 +85,9 @@ export class TaskPostgreImpl implements ITaskRepository {
 			result.content,
 			DateTime.fromISO(result.created_at),
 			DateTime.fromISO(result.updated_at),
-			result.notify_at ? DateTime.fromISO(result.notify_at) : null
+			result.notify_at ? DateTime.fromISO(result.notify_at) : null,
+			result.notified,
+			result.notify_type as TaskNotifyType
 		);
 
 	}
@@ -105,7 +111,9 @@ export class TaskPostgreImpl implements ITaskRepository {
 					schema.content,
 					DateTime.fromISO(schema.created_at),
 					DateTime.fromISO(schema.updated_at),
-					schema.notify_at ? DateTime.fromISO(schema.notify_at) : null
+					schema.notify_at ? DateTime.fromISO(schema.notify_at) : null,
+					schema.notified,
+					schema.notify_type as TaskNotifyType
 				)
 
 			)
@@ -147,7 +155,9 @@ export class TaskPostgreImpl implements ITaskRepository {
 				schema.content,
 				DateTime.fromISO(schema.created_at),
 				DateTime.fromISO(schema.updated_at),
-				schema.notify_at ? DateTime.fromISO(schema.notify_at) : null
+				schema.notify_at ? DateTime.fromISO(schema.notify_at) : null,
+				schema.notified,
+				schema.notify_type as TaskNotifyType
 			));
 
 			

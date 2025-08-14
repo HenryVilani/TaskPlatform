@@ -11,6 +11,7 @@ import { ListTaskUseCase } from "src/application/use-cases/tasks/list.usecase";
 import { BaseError } from "src/application/erros/base.errors";
 import { ApiBody, ApiExtraModels, ApiOperation, ApiResponse, ApiTags, getSchemaPath } from "@nestjs/swagger";
 import { TaskCreateDTO, TaskDTO, TaskIdentifierDTO, TaskFetchSegmentDTO, TaskUpdateDTO, TaskReturnSegmentDTO } from "./dtos/task.dto";
+import { JWTGuard } from "src/infrastructure/auth/jwt/jwt.guard";
 
 @ApiExtraModels(StatusDTO, TaskDTO)
 @ApiTags("Task")
@@ -24,7 +25,7 @@ export class TaskController {
 		private readonly listTaskUseCase: ListTaskUseCase
 	) {}
 
-	@UseGuards(AuthGuard('jwt'))
+	@UseGuards(JWTGuard)
 	@Post("create")
 	@ApiOperation({ 
 		summary: "Create",
@@ -72,7 +73,7 @@ export class TaskController {
 
 		try {
 
-			const task = await this.createTaskUseCase.execute(body.name, request.user as ITokenDataInDTO);
+			const task = await this.createTaskUseCase.execute(body, request.user as ITokenDataInDTO);
 
 			return new StatusDTO<TaskDTO>("created", TaskDTO.fromTask(task));
 			
@@ -95,7 +96,7 @@ export class TaskController {
 
 	}
 
-	@UseGuards(AuthGuard('jwt'))
+	@UseGuards(JWTGuard)
 	@Post("update")
 	@ApiOperation({ 
 		summary: "Update",
@@ -178,7 +179,7 @@ export class TaskController {
 
 	}
 
-	@UseGuards(AuthGuard('jwt'))
+	@UseGuards(JWTGuard)
 	@Post("delete")
 	@ApiOperation({ 
 		summary: "Delete",
@@ -239,7 +240,7 @@ export class TaskController {
 
 	}
 
-	@UseGuards(AuthGuard('jwt'))
+	@UseGuards(JWTGuard)
 	@Post("list")
 	@ApiOperation({ 
 		summary: "List",
@@ -248,7 +249,9 @@ export class TaskController {
 	@ApiResponse({ 
 		status: 200,
 		description: "Task retrived successfully",
-		example: {},
+		example: {
+			limit: 10
+		},
 		schema: {
 			allOf: [
 				{ $ref: getSchemaPath(StatusDTO) },
@@ -296,7 +299,7 @@ export class TaskController {
 		example: new StatusDTO("unauthorized"),
 		type: StatusDTO
 	})
-	async getAllTasks(@Req() request: Request, @Body() body: TaskFetchSegmentDTO): Promise<StatusDTO<TaskReturnSegmentDTO>> {
+	async listTasks(@Req() request: Request, @Body() body: TaskFetchSegmentDTO): Promise<StatusDTO<TaskReturnSegmentDTO>> {
 
 		try {
 

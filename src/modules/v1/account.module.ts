@@ -10,15 +10,7 @@ import { AuthModule } from './auth.module';
 @Module({
 	imports: [
 		DatabaseModule,
-		AuthModule,
-		PassportModule,
-		JwtModule.register({
-			secret: process.env.JWT_SECRET ?? "secret",
-			signOptions: {
-				expiresIn: '1h'
-			}
-		})
-
+		AuthModule
 	],
 	controllers: [AccoutController],
 	providers: [

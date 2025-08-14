@@ -4,6 +4,7 @@ import { Email, Password, User } from "src/domain/user.domain";
 import { MainDataSource } from "../datasource";
 import { UserSchema } from "../schemas/user.schema";
 import { UserNotFound } from "src/application/erros/auth.errors";
+import { UserFlags } from "src/application/repositories/auth.repository";
 
 
 @Injectable()
@@ -58,8 +59,9 @@ export class UserSQLiteImpl implements IUserRepository {
 
 		return new User(
 			user.id,
+			user.type as UserFlags,
 			await new Email(user.email).validate(),
-			new Password(user.password, {validated: true})
+			new Password(user.password, {validated: true}),
 		);
 
 	}
@@ -71,10 +73,10 @@ export class UserSQLiteImpl implements IUserRepository {
 
 		return new User(
 			user.id,
+			user.type as UserFlags,
 			await new Email(user.email).validate(),
 			new Password(user.password, {validated: true})
 		);
-
 
 	}
 

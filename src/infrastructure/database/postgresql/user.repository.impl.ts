@@ -6,6 +6,7 @@ import { UserSchema } from "../schemas/user.schema";
 import { UserNotFound } from "src/application/erros/auth.errors";
 import { PostgreSQLDataSource } from "./postgre.datasource";
 import { Repository, DataSource } from "typeorm";
+import { UserFlags } from "src/application/repositories/auth.repository";
 
 
 @Injectable()
@@ -22,7 +23,8 @@ export class UserPostgreImpl implements IUserRepository {
 		await this.userRepository.save({
 			id: user.id,
 			email: user.email.validatedEmail,
-			password: user.password.validatedPassowrd
+			password: user.password.validatedPassowrd,
+			type: user.type
 
 		});
 
@@ -64,6 +66,7 @@ export class UserPostgreImpl implements IUserRepository {
 
 		return new User(
 			user.id,
+			user.type as UserFlags,
 			await new Email(user.email).validate(),
 			new Password(user.password, {validated: true})
 		);
@@ -77,6 +80,7 @@ export class UserPostgreImpl implements IUserRepository {
 
 		return new User(
 			user.id,
+			user.type as UserFlags,
 			await new Email(user.email).validate(),
 			new Password(user.password, {validated: true})
 		);

@@ -5,9 +5,17 @@ import { DeleteTaskUseCase } from '../../application/use-cases/tasks/delete.usec
 import { ListTaskUseCase } from '../../application/use-cases/tasks/list.usecase';
 import { TaskController } from '../../interfaces/http/v1/task.controller';
 import { DatabaseModule } from './database.module';
+import { AuthModule } from './auth.module';
+import { SchedulerTaskUseCase } from 'src/application/use-cases/tasks/scheduler.usecase';
+import { NotifyModule } from './notify.module';
 
 @Module({
-	imports: [DatabaseModule],
+	imports: [
+		DatabaseModule, 
+		AuthModule,
+		NotifyModule,
+
+	],
 	controllers: [TaskController],
 	providers: [
 
@@ -16,6 +24,7 @@ import { DatabaseModule } from './database.module';
 		DeleteTaskUseCase,
 		ListTaskUseCase,
 		
-	]
+	],
+	exports: []
 })
 export class TasksModule {}

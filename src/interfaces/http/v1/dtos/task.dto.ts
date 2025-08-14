@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { Task, TaskSegment } from "src/domain/task.domain";
+import { Task, type TaskNotifyType, TaskSegment } from "src/domain/task.domain";
 
 
 export class TaskCreateDTO {
@@ -9,6 +9,31 @@ export class TaskCreateDTO {
 		example: "Task 01"
 	})
 	name: string;
+
+	@ApiProperty({
+		description: "Content of the task",
+		type: "string",
+		example: "Homework",
+		nullable: true,
+	})
+	content?: string;
+
+	@ApiProperty({
+		description: "Notify datetime in iso of the task",
+		type: "string",
+		example: "2025-08-13T12:34:56.789Z",
+		nullable: true
+	})
+	notifyAt?: string;
+
+	@ApiProperty({
+		description: "Notify type of the task (EveryTime | OneTime)",
+		type: "string",
+		example: "2025-08-13T12:34:56.789Z",
+		nullable: true
+	})
+	notifyType?: TaskNotifyType;
+
 }
 
 export class TaskIdentifierDTO {

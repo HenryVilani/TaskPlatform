@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, OneToMany, PrimaryColumn, PrimaryGeneratedColumn, Unique } from "typeorm";
+import { Column, Entity, OneToMany, PrimaryColumn, Unique } from "typeorm";
 import { TaskSchema } from "./task.schema";
 
 @Entity('users')

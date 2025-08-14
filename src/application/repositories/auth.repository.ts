@@ -1,6 +1,6 @@
 import { User } from "src/domain/user.domain"
-import { IAuthGuard } from '@nestjs/passport';
-export type UserFlags = "USER";
+
+export type UserFlags = "User" | "Admin";
 
 export interface IAuthRepository {
 

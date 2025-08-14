@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { InvalidTaskName } from "src/application/erros/task.error";
 import { User } from "./user.domain";
 
+export type TaskNotifyType = "EveryTime" | "OneTime"
 
 export class TaskName {
 
@@ -27,7 +28,6 @@ export class TaskName {
 
 }
 
-
 export class Task {
 
 	constructor(
@@ -37,7 +37,10 @@ export class Task {
 		public content: string,
 		public createdAt: DateTime,
 		public updatedAt: DateTime,
-		public notifyAt: DateTime | null
+		public notifyAt: DateTime | null,
+		public notified: boolean | null,
+		public notifyType: TaskNotifyType | null
+
 	) {}
 
 }

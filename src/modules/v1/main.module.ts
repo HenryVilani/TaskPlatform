@@ -5,6 +5,7 @@ import { TasksModule } from './tasks.module';
 import { RouterModule } from '@nestjs/core';
 import { DatabaseModule } from './database.module';
 import { DataSource } from 'typeorm';
+import { NotifyModule } from './notify.module';
 
 
 
@@ -15,6 +16,7 @@ import { DataSource } from 'typeorm';
 		DatabaseModule,
 		AccountModule,
 		TasksModule,
+		NotifyModule,
 		RouterModule.register([
 			{
 				path: "v1",

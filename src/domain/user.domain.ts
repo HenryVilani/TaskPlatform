@@ -1,6 +1,7 @@
 import { EmailIsNotValid, PasswordIsNotValid } from "src/application/erros/auth.errors";
 import argon2 from "argon2"
 import { Logger } from "@nestjs/common";
+import { UserFlags } from "src/application/repositories/auth.repository";
 
 export class Email {
 
@@ -58,7 +59,12 @@ export class Password {
 
 export class User {
 
-    constructor (public readonly id: string, public email: Email, public password: Password) {}
+    constructor (
+		public readonly id: string, 
+		public type: UserFlags,
+		public email: Email, 
+		public password: Password
+	) {}
 
 }
 

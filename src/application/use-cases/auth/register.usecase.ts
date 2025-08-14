@@ -24,7 +24,7 @@ export class RegisterUserUseCase {
 		const passwordObj = await new Password(password).validate();
 		const emailObj = await new Email(email).validate();
 
-		const user = new User(ulid(), emailObj, passwordObj);
+		const user = new User(ulid(), "User", emailObj, passwordObj);
 		const registerdUser = await this.userRepository.create(user);
 
 		return {

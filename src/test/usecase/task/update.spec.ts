@@ -14,8 +14,8 @@ import { TaskNotFound } from "src/application/erros/task.error";
 import { RegisterUserUseCase } from "src/application/use-cases/auth/register.usecase";
 import { CreateTaskUseCase } from "src/application/use-cases/tasks/create.usecase";
 import { UpdateTaskUseCase } from "src/application/use-cases/tasks/update.usecase";
-import { Task, TaskName } from "src/domain/task.domain";
-import { User } from "src/domain/user.domain";
+import { Task, TaskName } from "src/domain/task/task.entity";
+import { User } from "src/domain/user.entity";
 import { TaskInMemoryRepository } from "src/infrastructure/database/inMemory/task.repository.impl";
 import { UserInMemoryRepository } from "src/infrastructure/database/inMemory/user.repository.impl";
 

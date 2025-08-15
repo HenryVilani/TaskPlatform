@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { ITaskRepository } from "src/application/repositories/task.repository";
-import { Task, TaskName, TaskSegment } from "src/domain/task.domain";
-import { User } from "src/domain/user.domain";
-import { DateTime } from "luxon";
+import { Task } from "src/domain/task/task.entity";
+import { User } from "src/domain/user/user.entity";
+import { TaskSegment } from "src/domain/task/task-segment";
 
 @Injectable()
 export class TaskInMemoryRepository implements ITaskRepository {

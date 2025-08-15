@@ -1,10 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { ISchedulerRepository } from "src/application/services/scheduler.repository";
-import { Task } from "src/domain/task.domain";
+import { Task } from "src/domain/task/task.entity";
 import Redis from "ioredis"
 import { DateTime } from "luxon";
 import { initWorker } from "./bullmq.worker";
+import { TaskDTO } from "src/interfaces/http/v1/dtos/task.dto";
 
 @Injectable()
 export class BullMQTaskScheduler implements ISchedulerRepository {
@@ -30,7 +31,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository {
 
 		}
 			
-
+		
 
 	}
 
@@ -39,7 +40,11 @@ export class BullMQTaskScheduler implements ISchedulerRepository {
 		if (!task.notifyAt) return;
 
 		const delay = task.notifyAt.diffNow().as('millisecond');
-		await this.queue.add("notify-task", { taskId: task.id }, {delay: 1000});
+		await this.queue.add("notify-task", task, {
+			delay: 0,
+			removeOnComplete: 5,
+				removeOnFail: 10
+		});
 
 		Logger.log(`[${task.id}] Schedule`);
 	}

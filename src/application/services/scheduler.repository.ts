@@ -1,4 +1,4 @@
-import { Task } from "src/domain/task.domain";
+import { Task } from "src/domain/task/task.entity";
 
 export interface ISchedulerRepository {
 

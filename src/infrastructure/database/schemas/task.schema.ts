@@ -23,7 +23,7 @@ export class TaskSchema {
 	notify_at: string | null;
 
 	@Column({type: "text", nullable: true})
-	notified: boolean | null;
+	notified: boolean;
 
 	@Column({type: "text", nullable: true})
 	notify_type: string;

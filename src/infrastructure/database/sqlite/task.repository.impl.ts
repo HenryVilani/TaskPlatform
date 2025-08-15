@@ -2,9 +2,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import { MainDataSource } from "../datasource";
 import { TaskSchema } from "../schemas/task.schema";
 import { ITaskRepository } from "src/application/repositories/task.repository";
-import { Task, TaskName, TaskNotifyType, TaskSegment } from "src/domain/task.domain";
 import { DateTime } from "luxon";
-import { User } from "src/domain/user.domain";
+import { Task, TaskNotifyType } from "src/domain/task/task.entity";
+import { User } from "src/domain/user/user.entity";
+import { TaskName } from "src/domain/task/task-name.value-object";
+import { TaskSegment } from "src/domain/task/task-segment";
 
 
 @Injectable()
@@ -16,7 +18,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 		
 		await this.taskTable.insert({
 			id: task.id,
-			name: task.name.validatedName,
+			name: task.name.value,
 			content: task.content,
 			created_at: DateTime.now().toISO(),
 			updated_at: DateTime.now().toISO(),
@@ -47,7 +49,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 	async update(user: User, task: Task): Promise<Task> {
 		
 		await this.taskTable.update({id: task.id, user_id: user.id}, {
-			name: task.name.validatedName,
+			name: task.name.value,
 			content: task.content,
 			updated_at: DateTime.now().toISO(),
 			notify_at: task.notifyAt ? task.notifyAt.toISO() : null
@@ -79,7 +81,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 		return new Task(
 			user,
 			result.id,
-			await new TaskName(result.name).validate(),
+			TaskName.create(result.name),
 			result.content,
 			DateTime.fromISO(result.created_at),
 			DateTime.fromISO(result.updated_at),
@@ -105,7 +107,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 				new Task(
 					user,
 					schema.id,
-					await new TaskName(schema.name).validate(),
+					TaskName.create(schema.name),
 					schema.content,
 					DateTime.fromISO(schema.created_at),
 					DateTime.fromISO(schema.updated_at),
@@ -149,7 +151,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 			tasks.push(new Task(
 				user, 
 				schema.id,
-				await new TaskName(schema.name).validate(),
+				TaskName.create(schema.name),
 				schema.content,
 				DateTime.fromISO(schema.created_at),
 				DateTime.fromISO(schema.updated_at),

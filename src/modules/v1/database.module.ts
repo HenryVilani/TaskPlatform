@@ -25,4 +25,4 @@ import { UserSchema } from 'src/infrastructure/database/schemas/user.schema';
 	],
 	exports: ['IUserRepository', 'ITaskRepository'],
 })
-export class DatabaseModule { }
+export class DatabaseModule {}

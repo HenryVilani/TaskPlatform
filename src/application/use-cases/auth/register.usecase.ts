@@ -1,10 +1,10 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
-import { IRegisterUserOutDTO } from "src/application/dtos/output/registerUser.out.dto";
+import { Inject, Injectable } from "@nestjs/common";
 import { type IUserRepository } from "src/application/repositories/user.respotory";
-import { Email, Password, User } from "src/domain/user.domain";
-import { ulid } from "ulid";
-import argon2 from "argon2"
-import { PasswordIsNotValid, UserAlreadyExists } from "src/application/erros/auth.errors";
+import { UserAlreadyExists } from "src/application/erros/auth.errors";
+import { Password } from "src/domain/user/password.value-object";
+import { Email } from "src/domain/user/email.value-object";
+import { User } from "src/domain/user/user.entity";
+import { RegisterUserDTO } from "src/application/dtos/registerUser.dto";
 
 @Injectable()
 export class RegisterUserUseCase {
@@ -13,7 +13,7 @@ export class RegisterUserUseCase {
 		@Inject("IUserRepository") private readonly userRepository: IUserRepository
 	) {}
 
-	async execute(email: string, password: string): Promise<IRegisterUserOutDTO> {
+	async execute(email: string, password: string): Promise<RegisterUserDTO> {
 
 		if (await this.userRepository.findByEmail(email)) {
 			
@@ -21,16 +21,16 @@ export class RegisterUserUseCase {
 			
 		}
 
-		const passwordObj = await new Password(password).validate();
-		const emailObj = await new Email(email).validate();
+		const passwordObj = await Password.create(password);
+		const emailObj = Email.create(email);
 
-		const user = new User(ulid(), "User", emailObj, passwordObj);
+		const user = new User(User.newId(), "User", emailObj, passwordObj);
 		const registerdUser = await this.userRepository.create(user);
 
 		return {
 				
 			id: registerdUser.id,
-			email: registerdUser.email.validatedEmail
+			email: registerdUser.email.value
 
 		}
 		

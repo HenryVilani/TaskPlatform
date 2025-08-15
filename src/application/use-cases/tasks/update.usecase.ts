@@ -1,13 +1,14 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
-import { ulid, isValid } from "ulid";
-import { Task, TaskName } from "src/domain/task.domain";
+import { Inject, Injectable } from "@nestjs/common";
+import { isValid } from "ulid";
+import { Task } from "src/domain/task/task.entity";
 import { DateTime } from "luxon";
 import { type ITaskRepository } from "src/application/repositories/task.repository";
 import { InvalidId, InvalidToken } from "src/application/erros/auth.errors";
-import { ITokenDataInDTO } from "src/application/dtos/input/token.in.dto";
+import { TokenDataDTO } from "src/application/dtos/token.dto";
 import { type IUserRepository } from "src/application/repositories/user.respotory";
 import { TaskNotFound } from "src/application/erros/task.error";
 import { TaskUpdateDTO } from "src/interfaces/http/v1/dtos/task.dto";
+import { TaskName } from "src/domain/task/task-name.value-object";
 
 @Injectable()
 export class UpdateTaskUseCase {
@@ -17,7 +18,7 @@ export class UpdateTaskUseCase {
 		@Inject("IUserRepository") private readonly userRepository: IUserRepository
 	) {}
 
-	async execute(taskData: TaskUpdateDTO, token: ITokenDataInDTO): Promise<Task> {
+	async execute(taskData: TaskUpdateDTO, token: TokenDataDTO): Promise<Task> {
 
 		if (!isValid(taskData.id)) throw new InvalidId();
 
@@ -31,7 +32,7 @@ export class UpdateTaskUseCase {
 		const updatedTask = new Task(
 			user,
 			taskData.id, 
-			await new TaskName(taskData.name).validate(), 
+			TaskName.create(taskData.name),
 			taskData.content, 
 			task.createdAt, 
 			DateTime.now(), 

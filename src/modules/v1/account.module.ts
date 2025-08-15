@@ -17,6 +17,7 @@ import { AuthModule } from './auth.module';
 		DeleteAccountUseCase,
 		InfoAccountUseCase
 		
-	]
+	],
+	exports: [InfoAccountUseCase]
 })
 export class AccountModule {}

@@ -1,5 +1,5 @@
 
-export interface ITokenDataInDTO {
+export class TokenDataDTO {
 
 	sub: string;
 	email: string;

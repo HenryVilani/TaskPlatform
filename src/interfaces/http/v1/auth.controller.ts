@@ -2,7 +2,7 @@ import { Body, Controller, Logger, Post } from "@nestjs/common";
 import { UserAuthDTO } from "./dtos/auth.dtos";
 import { RegisterUserUseCase } from "src/application/use-cases/auth/register.usecase";
 import { LoginUseCase } from "src/application/use-cases/auth/login.usecase";
-import { StatusDTO } from "src/application/dtos/output/status.out.dto";
+import { StatusDTO } from "src/application/dtos/status.dto";
 import { BaseError } from "src/application/erros/base.errors";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
@@ -15,7 +15,10 @@ export class AuthController {
 	) {}
 
 	@Post("register")
-	@ApiOperation({ summary: "Register" })
+	@ApiOperation({ 
+		summary: "Register",
+		description: "Register new user"
+	})
 	@ApiResponse({ 
 		status: 200,
 		description: "User registered successfully",
@@ -72,7 +75,10 @@ export class AuthController {
 	}
 
 	@Post("login")
-	@ApiOperation({ summary: "Login" })
+	@ApiOperation({ 
+		summary: "Login",
+		description: "Loggin user and return a token"
+	})
 	@ApiResponse({ 
 		status: 200,
 		description: "User logged in successfully",

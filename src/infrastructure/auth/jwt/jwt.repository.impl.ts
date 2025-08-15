@@ -1,11 +1,10 @@
-import { ExecutionContext, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
-import { IAuthRepository, UserFlags } from "src/application/repositories/auth.repository";
-import { type IUserRepository } from "src/application/repositories/user.respotory";
-import { Password, User } from "src/domain/user.domain";
+import { IAuthRepository, UserRole } from "src/application/repositories/auth.repository";
 import argon2 from "argon2"
-import { StatusDTO } from "src/application/dtos/output/status.out.dto";
 import jsonwebtoken from "jsonwebtoken";
 import { InvalidToken } from "src/application/erros/auth.errors";
+import { Injectable } from "@nestjs/common";
+import { User } from "src/domain/user/user.entity";
+import { Password } from "src/domain/user/password.value-object";
 
 
 @Injectable()
@@ -15,15 +14,15 @@ export class JWTImpl implements IAuthRepository {
 
 	async authenticate(user: User, tryPassword: string): Promise<boolean> {
 		
-		const validPassword = await new Password(tryPassword).validate()
+		const validPassword = await Password.create(tryPassword)
 
-		return await argon2.verify(user.password.validatedPassowrd, tryPassword);
+		return await argon2.verify(user.password.value, validPassword.plain);
 
 	}
 
-	async authorize(user: User, flag: UserFlags): Promise<boolean> {
+	async authorize(user: User, role: UserRole): Promise<boolean> {
 		
-		return user.type == flag;
+		return user.role == role;
 
 	}
 

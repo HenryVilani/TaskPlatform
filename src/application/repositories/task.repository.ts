@@ -1,5 +1,6 @@
-import { Task, TaskSegment } from "src/domain/task.domain";
-import { User } from "src/domain/user.domain";
+import { TaskSegment } from "src/domain/task/task-segment";
+import { Task } from "src/domain/task/task.entity";
+import { User } from "src/domain/user/user.entity";
 
 export interface ITaskRepository {
 

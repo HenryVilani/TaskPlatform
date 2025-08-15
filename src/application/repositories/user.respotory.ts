@@ -1,4 +1,5 @@
-import { User } from "src/domain/user.domain";
+import { User } from "src/domain/user/user.entity";
+
 
 export interface IUserRepository {
 

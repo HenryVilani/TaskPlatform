@@ -1,29 +1,55 @@
 
-import { Logger } from "@nestjs/common";
-import { Worker } from "bullmq";
+import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Job, Worker } from "bullmq";
 import {Redis} from "ioredis";
+import { Task } from "src/domain/task/task.entity";
 
 export const initWorker = (connection: Redis) => {
-
-	console.log("INIT WORKER")
 	
-	const worker = new Worker("notify-task", async job => {
 
-		console.log(job.data);
-		Logger.log("OI")
 
-	}, { connection });
 
-	worker.on('completed', job => {
+}
 
-		Logger.log("COMPLETED");
+@Injectable()
+export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 
-	})
+	private worker: Worker;
 
-	worker.on('failed', job => {
+	constructor(
+		
+	) {}
 
-		Logger.log("failed");
+	onModuleInit() {
 
-	})
+		this.init();
+		
+	}
+
+	async onModuleDestroy() {
+		
+		if (!this.worker) return;
+
+		await this.worker.close()
+
+	}
+
+	private init() {
+
+		const connection = new Redis({
+			host: process.env.REDIS_HOST ?? "127.0.0.1",
+			port: Number(process.env.REDIS_PORT) ?? 6379,
+			maxRetriesPerRequest: null
+		});
+
+		const worker = new Worker("tasks", async (job: Job<Task>) => {
+
+		
+		
+
+		}, { connection });
+
+
+	}
 
 }

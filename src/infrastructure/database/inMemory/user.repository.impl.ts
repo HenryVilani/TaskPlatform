@@ -1,11 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { IUserRepository } from "src/application/repositories/user.respotory";
-import { Email, Password, User } from "src/domain/user.domain";
+import { User } from "src/domain/user/user.entity";
 
 @Injectable()
 export class UserInMemoryRepository implements IUserRepository {
 	private static users: User[] = [];
-	private static nextId = 1;
 
 	async create(user: User): Promise<User> {
 
@@ -36,7 +35,7 @@ export class UserInMemoryRepository implements IUserRepository {
 
 	async findByEmail(email: string): Promise<User | null> {
 		const found = UserInMemoryRepository.users.find(
-			(u) => u.email.validatedEmail === email
+			(u) => u.email.value === email
 		);
 		return found || null;
 	}

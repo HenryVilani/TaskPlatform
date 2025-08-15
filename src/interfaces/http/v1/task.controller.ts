@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Inject, Logger, Post, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { type Request } from "express";
-import { ITokenDataInDTO } from "../../../application/dtos/input/token.in.dto";
+import { TokenDataDTO } from "../../../application/dtos/token.dto";
 import { InvalidToken } from "src/application/erros/auth.errors";
-import { StatusDTO } from "src/application/dtos/output/status.out.dto";
+import { StatusDTO } from "src/application/dtos/status.dto";
 import { CreateTaskUseCase } from "src/application/use-cases/tasks/create.usecase";
 import { UpdateTaskUseCase } from "src/application/use-cases/tasks/update.usecase";
 import { DeleteTaskUseCase } from "src/application/use-cases/tasks/delete.usecase";
@@ -73,7 +73,7 @@ export class TaskController {
 
 		try {
 
-			const task = await this.createTaskUseCase.execute(body, request.user as ITokenDataInDTO);
+			const task = await this.createTaskUseCase.execute(body, request.user as TokenDataDTO);
 
 			return new StatusDTO<TaskDTO>("created", TaskDTO.fromTask(task));
 			
@@ -157,7 +157,7 @@ export class TaskController {
 
 			const task = await this.updateTaskUseCase.execute({
 				...body
-			}, request.user as ITokenDataInDTO);
+			}, request.user as TokenDataDTO);
 
 			return new StatusDTO<TaskDTO>("updated", TaskDTO.fromTask(task));
 			
@@ -220,7 +220,7 @@ export class TaskController {
 
 		try {
 
-			await this.deleteTaskUseCase.execute(body.id, request.user as ITokenDataInDTO);
+			await this.deleteTaskUseCase.execute(body.id, request.user as TokenDataDTO);
 			
 			return new StatusDTO("deleted");
 
@@ -303,7 +303,7 @@ export class TaskController {
 
 		try {
 
-			let segment = await this.listTaskUseCase.execute(body.limit, body.cursor, request.user as ITokenDataInDTO);
+			let segment = await this.listTaskUseCase.execute(request.user as TokenDataDTO, body.limit, body.cursor);
 
 			return new StatusDTO<TaskReturnSegmentDTO>("tasks", TaskReturnSegmentDTO.fromSegment(segment));
 

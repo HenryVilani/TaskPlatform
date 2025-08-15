@@ -1,13 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { apiReference } from '@scalar/nestjs-api-reference';
 
 import { AppModule } from './modules/app.module';
 
 //Database Import
 import { PostgreSQLDataSource } from './infrastructure/database/postgresql/postgre.datasource';
-
+import { LoggingInterceptor } from './infrastructure/interceptors/logging.interceptor';
+import helmet from "helmet"
+import { apiReference } from "@scalar/nestjs-api-reference";
 
 const setupDocumentation = (app: INestApplication) => {
 	
@@ -22,7 +23,8 @@ const setupDocumentation = (app: INestApplication) => {
 	
 	app.use("/api-docs/v1", apiReference({
 		content: documentSwaggerV1,
-		theme: "deepSpace"
+		theme: "deepSpace",
+		cdn: "/scalar/standalone.js"
 	}))
 
 
@@ -35,6 +37,22 @@ async function bootstrap() {
 	
 	// create a NestJS App
 	const app = await NestFactory.create(AppModule);
+
+	app.enableCors();
+
+	// validation pipe
+	app.useGlobalPipes(new ValidationPipe({
+		whitelist: true,
+		forbidUnknownValues: true,
+		transform: true,
+		transformOptions: {
+			enableImplicitConversion: true
+		}
+	}));
+
+	app.useGlobalInterceptors(new LoggingInterceptor());
+	app.use(helmet());
+	
 	
 	// Setup documentation
 	setupDocumentation(app);

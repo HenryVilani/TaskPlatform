@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { Response } from "express";
-import { StatusDTO } from "src/application/dtos/output/status.out.dto";
+import { StatusDTO } from "src/application/dtos/status.dto";
 import { type IAuthRepository } from "src/application/repositories/auth.repository";
 
 @Injectable()
@@ -32,8 +32,6 @@ export class JWTGuard implements CanActivate {
 			return true;
 
 		}catch(error) {
-
-			console.log(this.authRepository)
 
 			response.status(401).json(new StatusDTO("invalid_token"))
 			return false;

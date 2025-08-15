@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { ITokenDataInDTO } from "src/application/dtos/input/token.in.dto";
+import { TokenDataDTO } from "src/application/dtos/token.dto";
 import { InvalidToken } from "src/application/erros/auth.errors";
 import { type IUserRepository } from "src/application/repositories/user.respotory";
 
@@ -10,7 +10,7 @@ export class DeleteAccountUseCase {
 		@Inject("IUserRepository") private readonly userRepository: IUserRepository
 	) {}
 
-	async execute(token: ITokenDataInDTO): Promise<void> {
+	async execute(token: TokenDataDTO): Promise<void> {
 
 		const user = await this.userRepository.findById(token.sub);
 		if (!user) throw new InvalidToken();

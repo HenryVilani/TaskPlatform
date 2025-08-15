@@ -9,4 +9,5 @@ export interface IAuthRepository {
 	authenticate(user: User, tryPassword: string): Promise<boolean>;
 	authorize(user: User, flag: UserRole): Promise<boolean>;
 
+
 }

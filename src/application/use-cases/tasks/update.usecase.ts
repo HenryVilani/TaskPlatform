@@ -37,7 +37,7 @@ export class UpdateTaskUseCase {
 			task.createdAt, 
 			DateTime.now(), 
 			taskData.notifyAt ? DateTime.fromISO(taskData.notifyAt) : null,
-			task.notified,
+			task.notifyStatus,
 			task.notifyType
 		);
 

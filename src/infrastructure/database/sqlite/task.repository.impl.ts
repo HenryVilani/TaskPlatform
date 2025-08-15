@@ -34,7 +34,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 			DateTime.now(),
 			DateTime.now(),
 			task.notifyAt,
-			task.notified,
+			task.notifyStatus,
 			task.notifyType
 		);
 
@@ -63,7 +63,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 			DateTime.now(),
 			DateTime.now(),
 			task.notifyAt,
-			task.notified,
+			task.notifyStatus,
 			task.notifyType
 		);
 
@@ -86,7 +86,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 			DateTime.fromISO(result.created_at),
 			DateTime.fromISO(result.updated_at),
 			result.notify_at ? DateTime.fromISO(result.notify_at) : null,
-			result.notified,
+			result.notify_status,
 			result.notify_type as TaskNotifyType
 		);
 
@@ -112,7 +112,7 @@ export class TaskSQLiteImpl implements ITaskRepository {
 					DateTime.fromISO(schema.created_at),
 					DateTime.fromISO(schema.updated_at),
 					schema.notify_at ? DateTime.fromISO(schema.notify_at) : null,
-					schema.notified,
+					schema.notify_status,
 					schema.notify_type as TaskNotifyType
 				)
 
@@ -156,16 +156,14 @@ export class TaskSQLiteImpl implements ITaskRepository {
 				DateTime.fromISO(schema.created_at),
 				DateTime.fromISO(schema.updated_at),
 				schema.notify_at ? DateTime.fromISO(schema.notify_at) : null,
-				schema.notified,
+				schema.notify_status,
 				schema.notify_type as TaskNotifyType
 			));
-
 			
 		}
 		
 		return new TaskSegment(tasks, hasMore, hasMore ? tasks[tasks.length - 1].id : undefined);
 		
-
 	}
 
 }

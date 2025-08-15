@@ -2,10 +2,10 @@ import { EmailIsNotValid } from "src/application/erros/auth.errors";
 
 export class Email {
 
-	private readonly emailValue: string;
+	public readonly value: string;
 
 	private constructor(email: string) {
-		this.emailValue = email;
+		this.value = email;
 	}
 
 	public static create(plainEmail: string): Email {
@@ -21,12 +21,6 @@ export class Email {
 
 	private static isValid(email: string): boolean {
 		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-	}
-
-	public get value(): string {
-
-		return this.emailValue;
-
 	}
 
 	public equals(other: Email): boolean {

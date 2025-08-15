@@ -5,61 +5,44 @@ import { ulid } from "ulid";
 import { TUserPermissions, UserPermissions } from "./user-permisions";
 
 
-
 export class User {
+	public role: UserRole;
+	public email: Email;
+	public password: Password;
 
 	constructor(
-		private readonly _id: string,
-		private _role: UserRole,
-		private _email: Email,
-		private _password: Password
-	) { }
-
-	get id(): string {
-		return this._id;
-	}
-
-	get role(): UserRole {
-		return this._role;
-	}
-
-	get email(): Email {
-		return this._email;
-	}
-
-	get password(): Password {
-		return this._password;
+		public readonly id: string,
+		role: UserRole,
+		email: Email,
+		password: Password
+	) {
+		this.role = role;
+		this.email = email;
+		this.password = password;
 	}
 
 	updateEmail(newEmail: string): void {
-		this._email = Email.create(newEmail);
+		this.email = Email.create(newEmail);
 	}
 
 	async updatePassword(plainPassword: string): Promise<void> {
-
-		this._password = await Password.create(plainPassword);
-
+		this.password = await Password.create(plainPassword);
 	}
 
 	promoteToAdmin(): void {
-		this._role = "Admin";
+		this.role = "Admin";
 	}
 
 	// Métodos de domínio
 	canManageUser(targetUser: User): boolean {
-		return this._role === "Admin" || this._id === targetUser.id;
+		return this.role === "Admin" || this.id === targetUser.id;
 	}
 
 	hasPermission(permission: TUserPermissions): boolean {
-
 		return UserPermissions[permission].includes(this.role);
-
 	}
 
 	static newId(): string {
-
 		return ulid();
-
 	}
-
 }

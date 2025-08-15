@@ -31,7 +31,7 @@ export class CreateTaskUseCase {
 			DateTime.now(), 
 			DateTime.now(), 
 			taskInfo.notifyAt ? DateTime.fromISO(taskInfo.notifyAt) : null,
-			false,
+			"SCHEDULED",
 			taskInfo.notifyType ?? null
 		);
 

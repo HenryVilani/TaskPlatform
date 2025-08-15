@@ -1,5 +1,4 @@
-import { Body, Controller, Get, Inject, Logger, Post, Req, UseGuards } from "@nestjs/common";
-import { AuthGuard } from "@nestjs/passport";
+import { Body, Controller, Logger, Post, Req, UseGuards } from "@nestjs/common";
 import { type Request } from "express";
 import { TokenDataDTO } from "../../../application/dtos/token.dto";
 import { InvalidToken } from "src/application/erros/auth.errors";

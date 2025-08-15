@@ -2,10 +2,10 @@ import { InvalidTaskName } from "src/application/erros/task.error";
 
 export class TaskName {
 
-	private readonly nameValue: string;
+	public readonly value: string;
 
 	private constructor(name: string) {
-		this.nameValue = name;
+		this.value = name;
 	}
 
 	public static create(name: string): TaskName {
@@ -16,11 +16,6 @@ export class TaskName {
 		}
 
 		return new TaskName(trimmed);
-	}
-
-
-	public get value(): string {
-		return this.nameValue;
 	}
 
 	public equals(other: TaskName): boolean {

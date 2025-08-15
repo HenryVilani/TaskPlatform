@@ -7,8 +7,6 @@ import { DatabaseModule } from './database.module';
 import { NotifyModule } from './notify.module';
 import { ServerModule } from './server.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { ServeStaticModule } from "@nestjs/serve-static"
-import { join } from 'path';
 
 
 @Module({

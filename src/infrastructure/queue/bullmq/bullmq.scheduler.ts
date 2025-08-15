@@ -1,19 +1,19 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { ISchedulerRepository } from "src/application/services/scheduler.repository";
 import { Task } from "src/domain/task/task.entity";
 import Redis from "ioredis"
-import { DateTime } from "luxon";
-import { initWorker } from "./bullmq.worker";
-import { TaskDTO } from "src/interfaces/http/v1/dtos/task.dto";
+import { BullMQWorkerService } from "./bullmq.worker";
 
 @Injectable()
-export class BullMQTaskScheduler implements ISchedulerRepository {
+export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, OnModuleDestroy{
 
 	private readonly queue: Queue;
-	private static initializedWorker: boolean = false; 
+	private readonly workerService: BullMQWorkerService;
 
 	constructor() {
+
+		console.log("CONSTUCTOR CALLED")
 
 		const connection = new Redis({
 			host: process.env.REDIS_HOST ?? "127.0.0.1",
@@ -23,15 +23,8 @@ export class BullMQTaskScheduler implements ISchedulerRepository {
 
 		this.queue = new Queue("tasks", { connection });
 
-		if (!BullMQTaskScheduler.initializedWorker) {
+		this.workerService = new BullMQWorkerService();
 
-			initWorker(connection);
-
-			BullMQTaskScheduler.initializedWorker = true;
-
-		}
-			
-		
 
 	}
 
@@ -40,13 +33,31 @@ export class BullMQTaskScheduler implements ISchedulerRepository {
 		if (!task.notifyAt) return;
 
 		const delay = task.notifyAt.diffNow().as('millisecond');
+
 		await this.queue.add("notify-task", task, {
-			delay: 0,
+			delay: 100,
+			attempts: 5,
 			removeOnComplete: 5,
-				removeOnFail: 10
+			removeOnFail: false,
+			backoff: {
+				type: "exponential",
+				delay: 1000
+			},
 		});
 
 		Logger.log(`[${task.id}] Schedule`);
+	}
+
+	async onModuleInit() {
+		
+		await this.workerService.onModuleInit();
+
+	}
+
+	async onModuleDestroy() {
+		
+		await this.workerService.onModuleDestroy();
+
 	}
 
 }

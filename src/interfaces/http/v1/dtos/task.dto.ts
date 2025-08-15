@@ -204,7 +204,7 @@ export class TaskFetchSegmentDTO {
 	@ApiProperty({
 		description: "Cursor of tasks list segment",
 		type: "string",
-		example: "01H4ZK8T0A7E4VY5M7C2Q2XK8",
+		example: "MDFINFpLOFQwQTdFNFZZNU03QzJRMlhLOA==",
 	})
 	@IsString()
 	@IsOptional()

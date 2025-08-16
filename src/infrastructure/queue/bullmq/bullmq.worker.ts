@@ -2,21 +2,20 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { Job, Worker } from "bullmq";
 import {Redis} from "ioredis";
-import { Emitter } from '@socket.io/redis-emitter';
 import { Task } from "src/domain/task/task.entity";
+import { WSTaskDTO } from "src/interfaces/ws/v1/dto/notify.dto";
 
 
-
+@Injectable()
 export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 
 	private worker: Worker;
-	private ioEmitte: Emitter;
+	private redisConnection: Redis;
 
 	constructor() {}
 
 	async onModuleInit() {
 
-		console.log("CALLL")
 		await this.init();
 
 	}
@@ -24,7 +23,6 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 	async onModuleDestroy() {
 		
 		if (!this.worker) return;
-
 		await this.worker.close()
 
 	}
@@ -33,28 +31,38 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 
 		console.log("[WORKER] INIT")
 
-		const connection = new Redis({
+		this.redisConnection = new Redis({
 			host: process.env.REDIS_HOST ?? "127.0.0.1",
 			port: Number(process.env.REDIS_PORT) ?? 6379,
 			maxRetriesPerRequest: null
 		});
 
-		this.ioEmitte = new Emitter(connection);
 
 		this.worker = new Worker("tasks", async (job: Job<Task>) => {
 
+			console.log("ENTREI NO JOB")
+
 			const task: Task = job.data;
+			task.markAsPending();
+			
 
-			console.log(task)
-			console.log(`[JOB] ${task.user.id}`);
+			const wsTask = WSTaskDTO.fromTask(task);
 
-			this.ioEmitte.to(`user:${task.user.id}`).emit("task:notify", {value: "123"})
+			try {
+
+				await this.redisConnection.publish(`user:${task.user.id}:notifications`, JSON.stringify(wsTask));
+
+			}catch (error) {
+
+				// handle error and update task in db
+				console.log("ERROR: ", error)
+
+			}
+
 		
 
-		}, { connection });
+		}, { connection: this.redisConnection });
 
-		this.worker.on('completed', (job) => console.log('[OK]', job.id));
-		this.worker.on('failed', (job, err) => console.error('[FAIL]', job?.id, err));
 
 	}
 

@@ -39,12 +39,11 @@ export class TaskCreateDTO {
 	@ApiProperty({
 		description: "Notify type of the task (EveryTime | OneTime)",
 		type: "string",
-		example: "2025-08-13T12:34:56.789Z",
+		example: "EveryTime",
 		required: false
 	})
-	@IsIn(["EveryTime", "OneTime"], { message: 'notifyType must be EveryTime or OneTime' })
-	@IsOptional()
-	notifyType?: TaskNotifyType;
+	@IsIn(["EveryTime", "OneTime", "Never"], { message: 'notifyType must be EveryTime | OneTime | Never' })
+	notifyType: TaskNotifyType;
 
 }
 

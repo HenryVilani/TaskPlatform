@@ -1,6 +1,6 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryColumn, PrimaryGeneratedColumn, Unique } from "typeorm";
 import { UserSchema } from "./user.schema";
-import { type TaskNotifyStatus } from "src/domain/task/task.entity";
+import { type TaskNotifyType, type TaskNotifyStatus } from "src/domain/task/task.entity";
 
 @Entity('tasks')
 export class TaskSchema {
@@ -27,7 +27,7 @@ export class TaskSchema {
 	notify_status: TaskNotifyStatus;
 
 	@Column({type: "varchar", nullable: true})
-	notify_type: string;
+	notify_type: TaskNotifyType;
 
 	@ManyToOne(() => UserSchema, (user) => user.tasks, {onDelete: "CASCADE"})
 	@JoinColumn({name: "user_id"})

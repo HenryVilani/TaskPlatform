@@ -4,8 +4,8 @@ import { TaskName } from "./task-name.value-object";
 import { ulid } from "ulid";
 
 
-export type TaskNotifyType = "EveryTime" | "OneTime"
-export type TaskNotifyStatus = "PENDIGN" | "SENT" | "SCHEDULED"
+export type TaskNotifyType = "EveryTime" | "OneTime" | "Never";
+export type TaskNotifyStatus = "PENDIGN" | "SENT" | "SCHEDULED" | "VOID";
 
 
 export class Task {
@@ -14,8 +14,8 @@ export class Task {
 	public readonly createdAt: DateTime;
 	public updatedAt: DateTime;
 	public notifyAt: DateTime | null;
-	public notifyStatus: TaskNotifyStatus | null;
-	public notifyType: TaskNotifyType | null;
+	public notifyStatus: TaskNotifyStatus;
+	public notifyType: TaskNotifyType;
 
 	constructor(
 		public readonly user: User,
@@ -24,9 +24,9 @@ export class Task {
 		content: string,
 		createdAt: DateTime,
 		updatedAt: DateTime,
-		notifyAt: DateTime | null = null,
-		notifyStatus: TaskNotifyStatus | null = null,
-		notifyType: TaskNotifyType | null = null
+		notifyAt: DateTime | null,
+		notifyStatus: TaskNotifyStatus,
+		notifyType: TaskNotifyType
 	) {
 		this.name = name;
 		this.content = content;
@@ -50,18 +50,17 @@ export class Task {
 		this.updatedAt = DateTime.now();
 	}
 
-	public markAsNotified(): void {
+	public markAsSent(): void {
 		this.notifyStatus = "SENT";
-		this.updatedAt = DateTime.now();
 	}
 
-	public clearNotification(): void {
-		this.notifyAt = null;
-		this.notifyType = null;
-		this.notifyStatus = null;
-		this.updatedAt = DateTime.now();
+	public markAsPending(): void {
+		this.notifyStatus = "PENDIGN";
 	}
 
+	public markAsScheduled(): void {
+		this.notifyStatus = "SCHEDULED";
+	}
 	static newId(): string {
 		return ulid();
 	}

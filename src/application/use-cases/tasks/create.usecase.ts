@@ -31,8 +31,8 @@ export class CreateTaskUseCase {
 			DateTime.now(), 
 			DateTime.now(), 
 			taskInfo.notifyAt ? DateTime.fromISO(taskInfo.notifyAt) : null,
-			"SCHEDULED",
-			taskInfo.notifyType ?? null
+			taskInfo.notifyType == "Never" ? "VOID" : "SCHEDULED",
+			taskInfo.notifyType
 		);
 
 		await this.schedulerRepository.schedule(task);

@@ -22,6 +22,8 @@ export class TaskPostgreImpl implements ITaskRepository {
 			created_at: DateTime.now().toISO(),
 			updated_at: DateTime.now().toISO(),
 			notify_at: task.notifyAt ?  task.notifyAt.toISO() : null,
+			notify_status: task.notifyStatus,
+			notify_type: task.notifyType,
 			user_id: user.id
 		});
 
@@ -112,7 +114,7 @@ export class TaskPostgreImpl implements ITaskRepository {
 					DateTime.fromISO(schema.updated_at),
 					schema.notify_at ? DateTime.fromISO(schema.notify_at) : null,
 					schema.notify_status,
-					schema.notify_type as TaskNotifyType
+					schema.notify_type
 				)
 
 			)
@@ -156,14 +158,13 @@ export class TaskPostgreImpl implements ITaskRepository {
 				DateTime.fromISO(schema.updated_at),
 				schema.notify_at ? DateTime.fromISO(schema.notify_at) : null,
 				schema.notify_status,
-				schema.notify_type as TaskNotifyType
+				schema.notify_type
 			));
 
 			
 		}
 		
 		return new TaskSegment(tasks, hasMore, hasMore ? tasks[tasks.length - 1].id : undefined);
-		
 
 	}
 

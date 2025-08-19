@@ -2,10 +2,28 @@ import { Module } from '@nestjs/common';
 import { BullMQTaskScheduler } from 'src/infrastructure/queue/bullmq/bullmq.scheduler';
 import { NotifyGateway } from 'src/interfaces/ws/v1/notify.gateway';
 import { AuthModule } from './auth.module';
-import { TasksModule } from './tasks.module';
 import { DatabaseModule } from './database.module';
 
-
+/**
+ * NotifyModule
+ * 
+ * This module handles real-time notifications and task scheduling.
+ * 
+ * Features:
+ * - Provides WebSocket gateway for notifying users of task updates (NotifyGateway)
+ * - Integrates with BullMQTaskScheduler for scheduling tasks
+ * 
+ * Integrations:
+ * - AuthModule: Required for user authentication
+ * - DatabaseModule: Required for accessing user and task data
+ * 
+ * Providers:
+ * - ISchedulerRepository (BullMQTaskScheduler): Task scheduling implementation
+ * - NotifyGateway: Handles WebSocket connections and notification events
+ * 
+ * Exports:
+ * - ISchedulerRepository: Allows other modules to schedule tasks
+ */
 @Module({
 	imports: [AuthModule, DatabaseModule],
 	providers: [
@@ -14,8 +32,7 @@ import { DatabaseModule } from './database.module';
 			useClass: BullMQTaskScheduler
 		},
 		NotifyGateway
-
 	],
 	exports: ['ISchedulerRepository'],
 })
-export class NotifyModule { }
+export class NotifyModule {}

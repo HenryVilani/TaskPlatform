@@ -3,6 +3,9 @@ import { Task, type TaskNotifyType } from "src/domain/task/task.entity";
 import { IsBase64, IsIn, IsInt, IsISO8601, IsNotEmpty, IsOptional, IsString, Length, Matches, Max, Min, ValidateIf } from "class-validator"
 import { TaskSegment } from "src/domain/task/task-segment";
 
+/**
+ * DTO for creating a new task
+ */
 export class TaskCreateDTO {
 
 	@ApiProperty({
@@ -13,7 +16,7 @@ export class TaskCreateDTO {
 	})
 	@IsString()
 	@IsNotEmpty()
-	@Length(1, 40, {message: "Task name must be between 1 and 40 characters"})
+	@Length(1, 40, { message: "Task name must be between 1 and 40 characters" })
 	name: string;
 
 	@ApiProperty({
@@ -27,17 +30,17 @@ export class TaskCreateDTO {
 	content?: string;
 
 	@ApiProperty({
-		description: "Notify datetime in iso of the task",
+		description: "Notify datetime in ISO 8601 format for the task",
 		type: "string",
 		example: "2025-08-13T12:34:56.789Z",
 		required: false
 	})
-	@IsISO8601({}, {message: "notifyAt must be a valid ISO 8601 date"})
+	@IsISO8601({}, { message: "notifyAt must be a valid ISO 8601 date" })
 	@IsOptional()
 	notifyAt?: string;
 
 	@ApiProperty({
-		description: "Notify type of the task (EveryTime | OneTime)",
+		description: "Notify type of the task (EveryTime | OneTime | Never)",
 		type: "string",
 		example: "EveryTime",
 		required: false
@@ -47,6 +50,9 @@ export class TaskCreateDTO {
 
 }
 
+/**
+ * DTO for identifying a task by ID (ULID format)
+ */
 export class TaskIdentifierDTO {
 
 	@ApiProperty({
@@ -60,6 +66,9 @@ export class TaskIdentifierDTO {
 
 }
 
+/**
+ * DTO representing a task entity for output
+ */
 export class TaskDTO {
 
 	@ApiProperty({
@@ -79,7 +88,7 @@ export class TaskDTO {
 	})
 	@IsString()
 	@IsNotEmpty()
-	@Length(1, 40, {message: "Task name must be between 1 and 40 characters"})
+	@Length(1, 40, { message: "Task name must be between 1 and 40 characters" })
 	name: string;
 
 	@ApiProperty({
@@ -90,7 +99,7 @@ export class TaskDTO {
 	})
 	@IsString()
 	@IsNotEmpty()
-	@Max(2024, {message: "The task content is too large"})
+	@Max(2024, { message: "The task content is too large" })
 	content: string;
 
 	@ApiProperty({
@@ -100,7 +109,7 @@ export class TaskDTO {
 		required: true
 	})
 	@IsNotEmpty()
-	@IsISO8601({}, {message: "createdAt must be a valid ISO 8601 date"})
+	@IsISO8601({}, { message: "createdAt must be a valid ISO 8601 date" })
 	createdAt: string;
 
 	@ApiProperty({
@@ -110,11 +119,11 @@ export class TaskDTO {
 		required: true
 	})
 	@IsNotEmpty()
-	@IsISO8601({}, {message: "updatedAt must be a valid ISO 8601 date"})
+	@IsISO8601({}, { message: "updatedAt must be a valid ISO 8601 date" })
 	updatedAt: string;
 
 	@ApiProperty({
-		description: "Notify datetime of the task in ISO 8601 format",
+		description: "Notify datetime of the task in ISO 8601 format, nullable",
 		type: "string",
 		example: "2025-08-13T12:34:56.789Z",
 		nullable: true,
@@ -122,26 +131,28 @@ export class TaskDTO {
 	})
 	@IsNotEmpty()
 	@ValidateIf(o => o.name !== null)
-	@IsISO8601({}, {message: "updatedAt must be a valid ISO 8601 date"})
+	@IsISO8601({}, { message: "notifyAt must be a valid ISO 8601 date" })
 	notifyAt: string | null;
 
+	/**
+	 * Maps a Task entity to TaskDTO
+	 */
 	static fromTask(task: Task): TaskDTO {
-
 		const dto = new TaskDTO();
-
 		dto.id = task.id;
 		dto.name = task.name.value;
 		dto.content = task.content;
 		dto.createdAt = task.createdAt.toISO()!;
 		dto.updatedAt = task.updatedAt.toISO()!;
 		dto.notifyAt = task.notifyAt ? task.notifyAt.toISO()! : null;
-
 		return dto;
-
 	}
 
 }
 
+/**
+ * DTO for updating a task
+ */
 export class TaskUpdateDTO {
 
 	@ApiProperty({
@@ -154,39 +165,42 @@ export class TaskUpdateDTO {
 	id: string;
 
 	@ApiProperty({
-		description: "Name of the task",
+		description: "Updated name of the task",
 		type: "string",
 		example: "Task 01",
 		required: true
 	})
 	@IsString()
 	@IsNotEmpty()
-	@Length(1, 40, {message: "Task name must be between 1 and 40 characters"})
+	@Length(1, 40, { message: "Task name must be between 1 and 40 characters" })
 	name: string;
 
 	@ApiProperty({
-		description: "Content of the task",
+		description: "Updated content of the task",
 		type: "string",
 		example: "Homework",
 		required: true
 	})
 	@IsString()
 	@IsNotEmpty()
-	@Max(2024, {message: "The task content is too large"})
+	@Max(2024, { message: "The task content is too large" })
 	content: string;
 
 	@ApiProperty({
-		description: "Notify datetime of the task in ISO 8601 format",
+		description: "Updated notify datetime in ISO 8601 format",
 		type: "string",
 		example: "2025-08-13T12:34:56.789Z",
 		nullable: true
 	})
-  	@IsISO8601({}, { message: 'notifyAt must be a valid ISO 8601 date' })
-  	@IsOptional()
+	@IsISO8601({}, { message: 'notifyAt must be a valid ISO 8601 date' })
+	@IsOptional()
 	notifyAt?: string;
 
 }
 
+/**
+ * DTO for fetching a paginated segment of tasks
+ */
 export class TaskFetchSegmentDTO {
 
 	@ApiProperty({
@@ -197,11 +211,11 @@ export class TaskFetchSegmentDTO {
 		required: true
 	})
 	@IsInt()
-  	@Min(1)
+	@Min(1)
 	limit: number;
 
 	@ApiProperty({
-		description: "Cursor of tasks list segment",
+		description: "Cursor for pagination (Base64 encoded)",
 		type: "string",
 		example: "MDFINFpLOFQwQTdFNFZZNU03QzJRMlhLOA==",
 	})
@@ -212,23 +226,24 @@ export class TaskFetchSegmentDTO {
 
 }
 
+/**
+ * DTO for returning a paginated segment of tasks
+ */
 export class TaskReturnSegmentDTO {
 
 	tasks: TaskDTO[];
 	cursor?: string;
 	hasMore: boolean;
 
+	/**
+	 * Maps a TaskSegment entity to TaskReturnSegmentDTO
+	 */
 	static fromSegment(segment: TaskSegment): TaskReturnSegmentDTO {
-
 		const returnSegment = new TaskReturnSegmentDTO();
-
 		returnSegment.tasks = segment.tasks.map(TaskDTO.fromTask);
 		returnSegment.hasMore = segment.hasMore;
 		returnSegment.cursor = segment.cursor;
-		
 		return returnSegment;
-
 	}
-
 
 }

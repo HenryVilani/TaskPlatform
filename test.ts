@@ -2,7 +2,7 @@ import { io } from "socket.io-client";
 
 const socket = io("http://localhost:3000/notify", {
 	auth: {
-		token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMUsyU0gwTUVGU1hCMFBaUDBZMDAyNzhCOSIsImVtYWlsIjp7InZhbHVlIjoidGVzdEBnbWFpbC5jb20ifSwiaWF0IjoxNzU1MzU5ODUyfQ.4-SXw_5RIasv_go_joPbvq4oP2M0XBN7JjTj9ZwTxdE"
+		token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMUsyVDA0WFBURTdHUEQ3WjZNMjI1UTdGRiIsImVtYWlsIjp7InZhbHVlIjoidGVzdEBnbWFpbC5jb20ifSwiaWF0IjoxNzU1MzY2NzIzfQ.zuMbEbaloBHwu4MBJ2IH9EZtHqKEOSJ3sh-4NsP0ipw"
 	}
 });
 

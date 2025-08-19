@@ -1,17 +1,20 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString, Length, Matches, Max } from "class-validator";
 import { Task } from "src/domain/task/task.entity";
-import { TaskDTO } from "src/interfaces/http/v1/dtos/task.dto";
 
-export class NotifyWebsocketDTO {
+/**
+ * Data Transfer Object (DTO) for WebSocket task notifications.
+ * 
+ * This class is used to structure the data sent over WebSocket when notifying clients
+ * about task updates. It includes validation rules and Swagger metadata.
+ */
+export class WSNotifyDTO {
 
-	id: string;
-	task: TaskDTO;
-
-}
-
-export class WSTaskDTO {
-
+	/**
+	 * Unique identifier of the task.
+	 * Must be a valid ULID (26-character string using characters 0-9, A-H, J-K, M-N, P-T, V-Z).
+	 * Example: "01H4ZK8T0A7E4VY5M7C2Q2XK8"
+	 */
 	@ApiProperty({
 		description: "Id of the task",
 		type: "string",
@@ -20,7 +23,12 @@ export class WSTaskDTO {
 	})
 	@Matches(/^[0-9A-HJKMNP-TV-Z]{26}$/, { message: 'Field must be a valid ULID' })
 	id: string;
-	
+
+	/**
+	 * Name of the task.
+	 * Must be a non-empty string between 1 and 40 characters.
+	 * Example: "Task 01"
+	 */
 	@ApiProperty({
 		description: "Name of the task",
 		type: "string",
@@ -29,9 +37,14 @@ export class WSTaskDTO {
 	})
 	@IsString()
 	@IsNotEmpty()
-	@Length(1, 40, {message: "Task name must be between 1 and 40 characters"})
+	@Length(1, 40, { message: "Task name must be between 1 and 40 characters" })
 	name: string;
 
+	/**
+	 * Preview content of the task.
+	 * Must be a non-empty string with a maximum length of 255 characters.
+	 * Example: "Homework"
+	 */
 	@ApiProperty({
 		description: "Content of the task",
 		type: "string",
@@ -40,12 +53,20 @@ export class WSTaskDTO {
 	})
 	@IsString()
 	@IsNotEmpty()
-	@Max(255, {message: "The task content is too large"})
+	@Max(255, { message: "The task content is too large" })
 	previewContent: string;
 
-	static fromTask(task: Task): WSTaskDTO {
+	/**
+	 * Creates a WSNotifyDTO instance from a Task entity.
+	 * 
+	 * @param task - The Task entity to convert
+	 * @returns WSNotifyDTO - The WebSocket notification DTO
+	 * 
+	 * The `previewContent` is truncated to 255 characters to comply with validation rules.
+	 */
+	static fromTask(task: Task): WSNotifyDTO {
 
-		const wsTask = new WSTaskDTO();
+		const wsTask = new WSNotifyDTO();
 
 		wsTask.id = task.id;
 		wsTask.name = task.name.value;

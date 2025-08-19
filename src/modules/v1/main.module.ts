@@ -7,11 +7,29 @@ import { DatabaseModule } from './database.module';
 import { NotifyModule } from './notify.module';
 import { ServerModule } from './server.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ObservabilityModule } from './observablity.module';
 
-
+/**
+ * MainV1Module
+ * 
+ * This module serves as the main entry point for the API version v1.
+ * It integrates all sub-modules, sets up routing, throttling, and global guards.
+ * 
+ * Features:
+ * - Integrates core modules: AuthModule, AccountModule, TasksModule, DatabaseModule, NotifyModule, ServerModule
+ * - Registers API routes under `/v1`
+ * - Enables global request throttling using ThrottlerModule and ThrottlerGuard
+ * - Integrates ObservabilityModule for monitoring and logging
+ * 
+ * Providers:
+ * - ThrottlerGuard applied globally via APP_GUARD
+ * 
+ * Exports:
+ * - All core modules for use in other parts of the application
+ */
 @Module({
-
 	imports: [
+		ObservabilityModule,
 		AuthModule,
 		DatabaseModule,
 		AccountModule,
@@ -19,32 +37,24 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 		NotifyModule,
 		ServerModule,
 
+		// API routing for v1
 		RouterModule.register([
 			{
 				path: "v1",
 				children: [
-					{
-						path: "",
-						module: AccountModule
-					},
-					{
-						path: "",
-						module: AuthModule
-					},
-					{
-						path: "",
-						module: TasksModule
-					}
-
+					{ path: "", module: AccountModule },
+					{ path: "", module: AuthModule },
+					{ path: "", module: TasksModule }
 				]
 			},
 		]),
 
+		// Request throttling configuration
 		ThrottlerModule.forRoot({
 			throttlers: [
 				{
-					ttl: 60000,
-					limit: 25,
+					ttl: 60000,   // Time to live for requests in milliseconds
+					limit: 25,    // Max number of requests per TTL
 				}
 			]
 		}),
@@ -52,12 +62,10 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 	],
 	controllers: [],
 	providers: [
-
 		{
 			provide: APP_GUARD,
-			useClass: ThrottlerGuard,
+			useClass: ThrottlerGuard, // Apply global throttling guard
 		},
-
 	],
 	exports: [
 		AuthModule,

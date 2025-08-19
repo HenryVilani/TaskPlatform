@@ -10,16 +10,30 @@ import { TaskNotFound } from "src/application/erros/task.error";
 import { TaskUpdateDTO } from "src/interfaces/http/v1/dtos/task.dto";
 import { TaskName } from "src/domain/task/task-name.value-object";
 
+/**
+ * Use case responsible for updating an existing task.
+ */
 @Injectable()
 export class UpdateTaskUseCase {
-
-	constructor (
+	/**
+	 * @param taskRepository Repository used to manage task data.
+	 * @param userRepository Repository used to manage user data.
+	 */
+	constructor(
 		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository,
 		@Inject("IUserRepository") private readonly userRepository: IUserRepository
 	) {}
 
+	/**
+	 * Executes the process of updating a task.
+	 * @param taskData Data Transfer Object containing updated task information.
+	 * @param token Token data identifying the user who owns the task.
+	 * @throws {InvalidId} Thrown if the task ID is not valid.
+	 * @throws {InvalidToken} Thrown if the token does not correspond to a valid user.
+	 * @throws {TaskNotFound} Thrown if the task does not exist.
+	 * @returns A promise that resolves to the updated Task entity.
+	 */
 	async execute(taskData: TaskUpdateDTO, token: TokenDataDTO): Promise<Task> {
-
 		if (!isValid(taskData.id)) throw new InvalidId();
 
 		const user = await this.userRepository.findById(token.sub);
@@ -27,23 +41,19 @@ export class UpdateTaskUseCase {
 
 		const task = await this.taskRepository.findById(user, taskData.id);
 		if (!task) throw new TaskNotFound();
-	
 
 		const updatedTask = new Task(
 			user,
-			taskData.id, 
+			taskData.id,
 			TaskName.create(taskData.name),
-			taskData.content, 
-			task.createdAt, 
-			DateTime.now(), 
+			taskData.content,
+			task.createdAt,
+			DateTime.now(),
 			taskData.notifyAt ? DateTime.fromISO(taskData.notifyAt) : null,
 			task.notifyStatus,
 			task.notifyType
 		);
 
-		
-		return await this.taskRepository.update(user, updatedTask)
-
+		return await this.taskRepository.update(user, updatedTask);
 	}
-
 }

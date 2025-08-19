@@ -9,130 +9,125 @@ import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 @Controller()
 export class AuthController {
 
-    constructor (
+	constructor(
 		private readonly createUserUseCase: RegisterUserUseCase,
 		private readonly loginUserUseCase: LoginUseCase
 	) {}
 
+	/**
+	 * Endpoint to register a new user.
+	 * Accepts email and password, validates, and creates user.
+	 */
 	@Post("register")
-	@ApiOperation({ 
+	@ApiOperation({
 		summary: "Register",
 		description: "Register new user"
 	})
-	@ApiResponse({ 
+	@ApiResponse({
 		status: 200,
 		description: "User registered successfully",
 		type: StatusDTO
 	})
-	@ApiResponse({ 
-		status: 400, 
-		description: "Error", 
-		type: StatusDTO<string>, 
+	@ApiResponse({
+		status: 400,
+		description: "Error",
+		type: StatusDTO<string>,
 		examples: {
 			"user_already_exists": {
 				summary: "User already exists",
-				value: new StatusDTO("user_already_exists") 
+				value: new StatusDTO("user_already_exists")
 			},
 			"password_is_not_valid": {
 				summary: "Password is not valid",
-				value: new StatusDTO("password_is_not_valid") 
+				value: new StatusDTO("password_is_not_valid")
 			},
 			"email_is_not_valid": {
 				summary: "Email is not valid",
-				value: new StatusDTO("email_is_not_valid") 
+				value: new StatusDTO("email_is_not_valid")
 			},
 			"unknown_error": {
 				summary: "Unknown error",
-				value: new StatusDTO("unknown_error") 
+				value: new StatusDTO("unknown_error")
 			},
-			
 		},
-
 	})
 	async registerUser(@Body() body: UserAuthDTO) {
-
 		try {
-
+			// Execute the registration use case
 			const user = await this.createUserUseCase.execute(body.email, body.password);
 
-			return new StatusDTO<{id: string; email: string}>("registered", {id: user.id,email: user.email});
+			// Return success with user id and email
+			return new StatusDTO<{ id: string; email: string }>("registered", {
+				id: user.id,
+				email: user.email
+			});
 
-		}catch(error) {
-
+		} catch (error) {
+			// Handle known errors via BaseError
 			if (error instanceof BaseError) {
-
 				return new StatusDTO(error.id);
-
-			}else {
-				
+			} else {
+				// Log unknown errors and return generic status
 				Logger.log(error)
 				return new StatusDTO("unknown_error");
-
 			}
-
 		}
-
 	}
 
+	/**
+	 * Endpoint to login a user.
+	 * Accepts email and password, validates credentials, and returns a token.
+	 */
 	@Post("login")
-	@ApiOperation({ 
+	@ApiOperation({
 		summary: "Login",
-		description: "Loggin user and return a token"
+		description: "Login user and return a token"
 	})
-	@ApiResponse({ 
+	@ApiResponse({
 		status: 200,
 		description: "User logged in successfully",
 		type: StatusDTO
 	})
-	@ApiResponse({ 
-		status: 400, 
-		description: "Error", 
-		type: StatusDTO<string>, 
+	@ApiResponse({
+		status: 400,
+		description: "Error",
+		type: StatusDTO<string>,
 		examples: {
 			"wrong_credentials": {
 				summary: "Wrong credentials",
-				value: new StatusDTO("wrong_credentials") 
+				value: new StatusDTO("wrong_credentials")
 			},
 			"password_is_not_valid": {
 				summary: "Password is not valid",
-				value: new StatusDTO("password_is_not_valid") 
+				value: new StatusDTO("password_is_not_valid")
 			},
 			"email_is_not_valid": {
 				summary: "Email is not valid",
-				value: new StatusDTO("email_is_not_valid") 
+				value: new StatusDTO("email_is_not_valid")
 			},
 			"unknown_error": {
 				summary: "Unknown error",
-				value: new StatusDTO("unknown_error") 
+				value: new StatusDTO("unknown_error")
 			},
-			
 		},
-
 	})
 	async loginUser(@Body() body: UserAuthDTO) {
-
 		try {
-
+			// Execute login use case to validate credentials
 			const result = await this.loginUserUseCase.execute(body.email, body.password);
 
-			return new StatusDTO<{token: string}>("logged_in", {token: result.token});
+			// Return success with JWT token
+			return new StatusDTO<{ token: string }>("logged_in", { token: result.token });
 
-		}catch (error) {
-
+		} catch (error) {
+			// Handle known errors via BaseError
 			if (error instanceof BaseError) {
-
 				return new StatusDTO(error.id);
-
-			}else {
-
+			} else {
+				// Log unknown errors and return generic status
 				Logger.log(error)
 				return new StatusDTO("unknown_error");
-
 			}
-
 		}
-
-
 	}
-
 }

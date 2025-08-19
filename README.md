@@ -8,32 +8,22 @@ TaskPlatform é um projeto backend de uma API REST para uma plataforma de tarefa
 - NestJS
 - TypeORM
 - Docker
+- Jest
 
 ### Banco de Dados
-- SQLite
+- PostgreSQL
 - InMemory (for jest)
 
 ### Obeservabilidade
-- Sentry
+- Grafana
+- Prometheus
+- Loki
 
 ### Documentação
 - Swagger
-- Jeager
+- Scalar
 
-## Como usar
 
-1. Baixe o arquivo de imagem
+Para acessar a documentação: http://localhost:8080/api-docs/v1
 
-2. Faça o load da imagem  
-```bash
-docker load -i TaskPlatform.tar
-```
-
-3. Execute o container
-```bash
-docker run -d -p 8080:80 task_platform
-```
-
-Para acessar a documentação: http://127.0.0.1:3000/api-docs/v1
-
-Para acessar o sentry: http://127.0.0.1:3000/sentry/v1
+Para acessar o grafana: http://localhost:3080/

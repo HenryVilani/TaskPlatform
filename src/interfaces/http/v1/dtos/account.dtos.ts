@@ -1,10 +1,31 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsNotEmpty, IsString, Length } from "class-validator";
+import { IsEmail, IsNotEmpty, IsString, Matches } from "class-validator";
 
-export class IAccountOutDTO {
+/**
+ * DTO for returning account information.
+ * Used when exposing user data in responses.
+ */
+export class IAccountInfoDTO {
 
+	/**
+	 * Unique identifier of the user account.
+	 * Must be a valid ULID (26-character string).
+	 */
 	@ApiProperty({
-		description: "Email of user",
+		description: "Id of the user account",
+		type: "string",
+		example: "01H4ZK8T0A7E4VY5M7C2Q2XK8",
+		required: true
+	})
+	@Matches(/^[0-9A-HJKMNP-TV-Z]{26}$/, { message: 'Field must be a valid ULID' })
+	id: string;
+
+	/**
+	 * Email address of the user.
+	 * Must be a non-empty valid email string.
+	 */
+	@ApiProperty({
+		description: "Email of the user",
 		type: "string",
 		example: "test@gmail.com",
 		required: true
@@ -12,17 +33,5 @@ export class IAccountOutDTO {
 	@IsString()
 	@IsNotEmpty()
 	@IsEmail()
-	id: string;
-
-	@ApiProperty({
-		description: "Password of user",
-		type: "string",
-		example: "senha123",
-		required: true
-	})
-	@IsString()
-	@IsNotEmpty()
-	@Length(8, 255)
 	email: string;
-
-};
+}

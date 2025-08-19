@@ -1,14 +1,19 @@
-import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from "@nestjs/common";
+import { CallHandler, ExecutionContext, Inject, Injectable, Logger, NestInterceptor } from "@nestjs/common";
 import { Request } from "express";
 import { DateTime } from "luxon";
 import { Observable } from "rxjs";
 import { tap} from "rxjs/operators"
 import { TokenDataDTO } from "src/application/dtos/token.dto";
+import { type ILoggerRepository } from "src/application/services/logger.repository";
 
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
 	private readonly logger = new Logger("HTTP");
+
+	constructor(
+		@Inject("ILoggerRepository") private readonly loggerService: ILoggerRepository
+	) {}
 
 	intercept(context: ExecutionContext, next: CallHandler<any>): Observable<any> | Promise<Observable<any>> {
 	
@@ -24,13 +29,22 @@ export class LoggingInterceptor implements NestInterceptor {
 				next: () => {
 					
 					const responseTime = DateTime.now().diff(now);
-					this.logger.log(`← ${method} ${url} - ${responseTime}ms`);
+					this.loggerService.register("Info", "REQUEST", {
+						method,
+						url,
+						responseTime
+					})
+					console.log("REQUEST");
 
 				},
 				error: (error) => {
 
 					const responseTime = DateTime.now().diff(now);
-          			this.logger.error(`← ${method} ${url} - ${responseTime}ms - ERROR: ${error.message}`);
+					this.loggerService.register("Error", "REQUEST", {
+						method,
+						url,
+						responseTime
+					})
 
 				}
 			})

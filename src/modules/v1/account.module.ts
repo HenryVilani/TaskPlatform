@@ -1,12 +1,31 @@
 import { Module } from '@nestjs/common';
-import { PassportModule } from '@nestjs/passport';
-import { JwtModule } from '@nestjs/jwt';
 import { AccoutController } from '../../interfaces/http/v1/account.controller';
 import { DeleteAccountUseCase } from '../../application/use-cases/account/delete.usecase';
 import { InfoAccountUseCase } from 'src/application/use-cases/account/info.usecase';
 import { DatabaseModule } from './database.module';
 import { AuthModule } from './auth.module';
 
+/**
+ * AccountModule
+ * 
+ * This module handles all account-related operations including:
+ * - Fetching account information (InfoAccountUseCase)
+ * - Deleting accounts (DeleteAccountUseCase)
+ * 
+ * It integrates with:
+ * - DatabaseModule for database access
+ * - AuthModule for authentication and authorization
+ * 
+ * Controllers:
+ * - AccoutController: Handles HTTP requests for account operations
+ * 
+ * Providers:
+ * - DeleteAccountUseCase: Business logic for deleting accounts
+ * - InfoAccountUseCase: Business logic for fetching account info
+ * 
+ * Exports:
+ * - InfoAccountUseCase: Can be used by other modules if needed
+ */
 @Module({
 	imports: [
 		DatabaseModule,
@@ -16,7 +35,6 @@ import { AuthModule } from './auth.module';
 	providers: [
 		DeleteAccountUseCase,
 		InfoAccountUseCase
-		
 	],
 	exports: [InfoAccountUseCase]
 })

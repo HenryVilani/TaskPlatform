@@ -6,24 +6,48 @@ import { ListTaskUseCase } from '../../application/use-cases/tasks/list.usecase'
 import { TaskController } from '../../interfaces/http/v1/task.controller';
 import { DatabaseModule } from './database.module';
 import { AuthModule } from './auth.module';
-import { SchedulerTaskUseCase } from 'src/application/use-cases/tasks/scheduler.usecase';
 import { NotifyModule } from './notify.module';
 
+/**
+ * TasksModule
+ * 
+ * This module handles all task-related operations, including CRUD operations
+ * and task scheduling/notifications.
+ * 
+ * Features:
+ * - Create, update, delete, and list tasks
+ * - Integrates with NotifyModule for task notifications
+ * 
+ * Controllers:
+ * - TaskController: Handles HTTP requests for task operations
+ * 
+ * Providers:
+ * - CreateTaskUseCase: Business logic for creating tasks
+ * - UpdateTaskUseCase: Business logic for updating tasks
+ * - DeleteTaskUseCase: Business logic for deleting tasks
+ * - ListTaskUseCase: Business logic for listing tasks
+ * - SchedulerTaskUseCase: Handles scheduling logic for tasks (imported but not explicitly listed in providers)
+ * 
+ * Imports:
+ * - DatabaseModule: Access to database schemas and repositories
+ * - AuthModule: Required for authentication and authorization
+ * - NotifyModule: Enables WebSocket notifications for tasks
+ * 
+ * Exports:
+ * - None
+ */
 @Module({
 	imports: [
-		DatabaseModule, 
+		DatabaseModule,
 		AuthModule,
 		NotifyModule,
-
 	],
 	controllers: [TaskController],
 	providers: [
-
 		CreateTaskUseCase,
 		UpdateTaskUseCase,
 		DeleteTaskUseCase,
 		ListTaskUseCase,
-		
 	],
 	exports: []
 })

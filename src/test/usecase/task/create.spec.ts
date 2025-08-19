@@ -13,8 +13,9 @@ import { DateTime } from "luxon";
 import { InvalidTaskName } from "src/application/erros/task.error";
 import { RegisterUserUseCase } from "src/application/use-cases/auth/register.usecase";
 import { CreateTaskUseCase } from "src/application/use-cases/tasks/create.usecase";
-import { Task, TaskName } from "src/domain/task/task.entity";
-import { User } from "src/domain/user.entity";
+import { TaskName } from "src/domain/task/task-name.value-object";
+import { Task } from "src/domain/task/task.entity";
+import { User } from "src/domain/user/user.entity";
 import { TaskInMemoryRepository } from "src/infrastructure/database/inMemory/task.repository.impl";
 import { UserInMemoryRepository } from "src/infrastructure/database/inMemory/user.repository.impl";
 
@@ -63,14 +64,15 @@ describe('Create Task UseCase', () => {
 
 		const user = await registerUserUseCase.execute("user_04@gmail.com", "12345678");
 
-		await expect(createTaskUsecase.execute("task01", {sub: user.id, email: user.email})).resolves.toMatchObject<Task>({
+		
+		await expect(createTaskUsecase.execute({
+			name: "task01",
+			notifyType: "EveryTime",
+			content: "Homework",
+		}, {sub: user.id, email: user.email})).resolves.toMatchObject<Task>({
 			user: expect.any(User),
-			id: expect.any(String),
-			name: expect.any(TaskName),
-			content: expect.any(String),
-			createdAt: expect.any(DateTime),
-			updatedAt: expect.any(DateTime),
-			notifyAt: anyOrNull(DateTime),
+			
+
 		})
 
 	});

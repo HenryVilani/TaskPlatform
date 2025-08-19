@@ -13,12 +13,12 @@ export class WSNotifyDTO {
 	/**
 	 * Unique identifier of the task.
 	 * Must be a valid ULID (26-character string using characters 0-9, A-H, J-K, M-N, P-T, V-Z).
-	 * Example: "01H4ZK8T0A7E4VY5M7C2Q2XK8"
+	 * Example: "01K31DX9HCR81KKD18HXGARCVQ"
 	 */
 	@ApiProperty({
 		description: "Id of the task",
 		type: "string",
-		example: "01H4ZK8T0A7E4VY5M7C2Q2XK8",
+		example: "01K31DX9HCR81KKD18HXGARCVQ",
 		required: true
 	})
 	@Matches(/^[0-9A-HJKMNP-TV-Z]{26}$/, { message: 'Field must be a valid ULID' })

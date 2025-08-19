@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { UserNotFound } from "src/application/erros/auth.errors";
 import { IUserRepository } from "src/application/repositories/user.respotory";
 import { User } from "src/domain/user/user.entity";
 
@@ -33,7 +34,7 @@ export class UserInMemoryRepository implements IUserRepository {
 		);
 
 		if (index === -1) {
-			throw new Error(`User ${user.id} not found`);
+			throw new UserNotFound();
 		}
 
 		UserInMemoryRepository.users[index] = user;

@@ -58,7 +58,7 @@ export class TaskIdentifierDTO {
 	@ApiProperty({
 		description: "Id of the task",
 		type: "string",
-		example: "01H4ZK8T0A7E4VY5M7C2Q2XK8",
+		example: "01K31DX9HCR81KKD18HXGARCVQ",
 		required: true
 	})
 	@Matches(/^[0-9A-HJKMNP-TV-Z]{26}$/, { message: 'Field must be a valid ULID' })
@@ -74,7 +74,7 @@ export class TaskDTO {
 	@ApiProperty({
 		description: "Id of the task",
 		type: "string",
-		example: "01H4ZK8T0A7E4VY5M7C2Q2XK8",
+		example: "01K31DX9HCR81KKD18HXGARCVQ",
 		required: true
 	})
 	@Matches(/^[0-9A-HJKMNP-TV-Z]{26}$/, { message: 'Field must be a valid ULID' })
@@ -158,7 +158,7 @@ export class TaskUpdateDTO {
 	@ApiProperty({
 		description: "Id of the task",
 		type: "string",
-		example: "01H4ZK8T0A7E4VY5M7C2Q2XK8",
+		example: "01K31DX9HCR81KKD18HXGARCVQ",
 		required: true
 	})
 	@Matches(/^[0-9A-HJKMNP-TV-Z]{26}$/, { message: 'Field must be a valid ULID' })

@@ -3,6 +3,7 @@ import { ITaskRepository } from "src/application/repositories/task.repository";
 import { Task } from "src/domain/task/task.entity";
 import { User } from "src/domain/user/user.entity";
 import { TaskSegment } from "src/domain/task/task-segment";
+import { TaskNotFound } from "src/application/erros/task.error";
 
 /**
  * In-memory implementation of ITaskRepository.
@@ -37,7 +38,7 @@ export class TaskInMemoryRepository implements ITaskRepository {
 		);
 
 		if (index === -1) {
-			throw new Error(`Task ${task.id} not found for user ${user.id}`);
+			throw new TaskNotFound();
 		}
 
 		TaskInMemoryRepository.tasks[index] = task;

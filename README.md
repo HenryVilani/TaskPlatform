@@ -1,6 +1,6 @@
 # TaskPlatform
 
-TaskPlatform é um projeto backend de uma API REST para uma plataforma de tarefas. Utilizo diversas tecnologias novas do mercado alem de utilizar clean architcture.
+TaskPlatform é um projeto backend de uma API REST para uma plataforma de tarefas. Utilizo diversas tecnologias muito utilizadas no mercado alem de utilizar clean architcture.
 
 ### Tecnologias de Desenvolvimento
 

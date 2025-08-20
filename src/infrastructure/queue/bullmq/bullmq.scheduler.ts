@@ -5,7 +5,7 @@ import { Task } from "src/domain/task/task.entity";
 import Redis from "ioredis"
 import { BullMQWorkerService } from "./bullmq.worker";
 import { type ITaskRepository } from "src/application/repositories/task.repository";
-import { QueueJobCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics.service";
+import { HttpErrorCounter, QueueJobCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics.service";
 
 
 /**
@@ -16,24 +16,59 @@ import { QueueJobCounter } from "src/infrastructure/observability/prometheus/pro
 export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, OnModuleDestroy {
 
 	private readonly logger = new Logger(BullMQTaskScheduler.name); // Logger for internal logging
-	private readonly queue: Queue<Job>; // BullMQ queue instance
-	private readonly workerService: BullMQWorkerService; // Worker service for processing jobs
+	private queue: Queue<Job>; // BullMQ queue instance
+	private workerService: BullMQWorkerService; // Worker service for processing jobs
 
 	constructor(
 		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository
 	) {
-		// Redis connection for BullMQ
-		const connection = new Redis({
-			host: process.env.REDIS_HOST ?? "127.0.0.1",
-			port: Number(process.env.REDIS_PORT) ?? 6379,
-			maxRetriesPerRequest: null
-		});
 
-		// Initialize the task queue
-		this.queue = new Queue("tasks", { connection });
+		const maxAttempts = 10; // Maximum number of reconnection attempts
+		let attempts = 0;
+
+		const tryId = setInterval(() => {
+
+			attempts++;
+
+			// Stop retrying if maximum attempts are reached, increment Prometheus counter
+			if (attempts > maxAttempts) {
+				clearInterval(tryId);
+				HttpErrorCounter.inc();
+			}
+
+			try {
+
+				// Redis connection for BullMQ
+				const connection = new Redis({
+					host: process.env.REDIS_HOST ?? "redis",
+					port: Number(process.env.REDIS_PORT) ?? 6379,
+					maxRetriesPerRequest: null
+				});
+
+				// Initialize the task queue
+				this.queue = new Queue("tasks", { connection });
+				
+
+				clearInterval(tryId);
+
+
+			}catch (error) {
+
+				if (attempts >= 3) {
+
+					HttpErrorCounter.inc();
+
+				}
+
+			}
+
+
+		}, 15000);
 
 		// Initialize the worker service
 		this.workerService = new BullMQWorkerService();
+
+		
 	}
 
 	/**
@@ -48,6 +83,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		const delay = task.notifyAt.diffNow().as('milliseconds');
 
 		try {
+			
 			// Add a job to the BullMQ queue
 			const job = await this.queue.add("notify-task", task, {
 				delay: delay,                  // Delay execution until notifyAt

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { IUserRepository } from "src/application/repositories/user.respotory";
 import { UserSchema } from "../schemas/user.schema";
 import { UserNotFound } from "src/application/erros/auth.errors";
@@ -17,8 +17,10 @@ export class UserPostgreImpl implements IUserRepository {
 	/** TypeORM repository for the User table */
 	private userRepository: Repository<UserSchema>;
 
-	constructor(private dataSource: DataSource) {
-		this.userRepository = dataSource.getRepository(UserSchema);
+	constructor(
+		@Inject("Datasource") private readonly datasource: DataSource
+	) {
+		this.userRepository = datasource.getRepository(UserSchema);
 	}
 
 	/**

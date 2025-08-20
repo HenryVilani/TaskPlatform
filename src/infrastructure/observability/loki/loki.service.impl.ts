@@ -39,7 +39,7 @@ export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 			try {
 				// Create the Loki transport for Winston
 				this.transporter = new LokiTransport({
-					host: "http://localhost:3100",
+					host: "http://loki:3100",
 					labels: {
 						app: "backend-app"
 					},

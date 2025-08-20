@@ -8,6 +8,7 @@ import { type ITaskRepository } from "src/application/repositories/task.reposito
 import { type IUserRepository } from "src/application/repositories/user.respotory";
 import { WSNotifyDTO } from "./dto/notify.dto";
 import { type ISchedulerRepository } from "src/application/services/scheduler.repository";
+import { HttpErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics.service";
 
 /**
  * WebSocket Gateway for task notifications.
@@ -44,22 +45,41 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	 * This method is called when the module is initialized.
 	 */
 	async onModuleInit() {
-		this.redisSub = new Redis({
-			host: process.env.REDIS_HOST ?? "127.0.0.1",
-			port: Number(process.env.REDIS_PORT) ?? 6379,
-			maxRetriesPerRequest: null
-		});
 
-		await this.redisSub.ping();
+		const maxAttempts = 10; // Maximum number of reconnection attempts
+		let attempts = 0;
 
-		// Subscribe to all user notification channels
-		this.redisSub.psubscribe("user:*:notifications");
+		const tryId = setInterval(async () => {
 
-		// Handle incoming Redis messages
-		this.redisSub.on('pmessage', (pattern: string, channel: string, message: string) => {
-			console.log(`[Redis] Received message on pattern: ${pattern}, channel: ${channel}`);
-			this.subscriberCallback(pattern, channel, message);
-		});
+			attempts++;
+
+			// Stop retrying if maximum attempts are reached, increment Prometheus counter
+			if (attempts > maxAttempts) {
+				clearInterval(tryId);
+				HttpErrorCounter.inc();
+			}
+
+			this.redisSub = new Redis({
+				host: process.env.REDIS_HOST ?? "127.0.0.1",
+				port: Number(process.env.REDIS_PORT) ?? 6379,
+				maxRetriesPerRequest: null
+			});
+	
+			await this.redisSub.ping();
+	
+			// Subscribe to all user notification channels
+			this.redisSub.psubscribe("user:*:notifications");
+	
+			// Handle incoming Redis messages
+			this.redisSub.on('pmessage', (pattern: string, channel: string, message: string) => {
+				console.log(`[Redis] Received message on pattern: ${pattern}, channel: ${channel}`);
+				this.subscriberCallback(pattern, channel, message);
+			});
+
+			clearInterval(tryId);
+
+		}, 15000);
+
 	}
 
 	/**

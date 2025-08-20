@@ -29,4 +29,4 @@ export const PostgreSQLConfig = {
  * TypeORM DataSource instance for PostgreSQL.
  * Can be used to initialize database connections.
  */
-export const PostgreSQLDataSource = new DataSource(PostgreSQLConfig as DataSourceOptions);
+//export const PostgreSQLDataSource = new DataSource(PostgreSQLConfig as DataSourceOptions);

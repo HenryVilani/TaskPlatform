@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { PostgreSQLConfig } from 'src/infrastructure/database/postgresql/postgre.datasource';
 import { TaskPostgreImpl } from 'src/infrastructure/database/postgresql/task.repository.impl';
 import { UserPostgreImpl } from 'src/infrastructure/database/postgresql/user.repository.impl';
-import { TaskSchema } from 'src/infrastructure/database/schemas/task.schema';
-import { UserSchema } from 'src/infrastructure/database/schemas/user.schema';
+import { DataSource, DataSourceOptions } from 'typeorm';
 
 /**
  * DatabaseModule
@@ -25,8 +23,8 @@ import { UserSchema } from 'src/infrastructure/database/schemas/user.schema';
  */
 @Module({
 	imports: [
-		TypeOrmModule.forRoot(PostgreSQLConfig as TypeOrmModuleOptions),
-		TypeOrmModule.forFeature([UserSchema, TaskSchema])
+		// TypeOrmModule.forRoot(PostgreSQLConfig as TypeOrmModuleOptions),
+		// TypeOrmModule.forFeature([UserSchema, TaskSchema])
 	],
 	providers: [
 		{
@@ -37,6 +35,10 @@ import { UserSchema } from 'src/infrastructure/database/schemas/user.schema';
 			provide: "ITaskRepository",
 			useClass: TaskPostgreImpl
 		},
+		{
+			provide: "Datasource",
+			useFactory: async () => new DataSource(PostgreSQLConfig as DataSourceOptions)
+		}
 	],
 	exports: ['IUserRepository', 'ITaskRepository'],
 })

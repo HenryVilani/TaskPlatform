@@ -1,21 +1,28 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { TaskSchema } from "../schemas/task.schema";
 import { ITaskRepository } from "src/application/repositories/task.repository";
 import { DateTime } from "luxon";
-import { PostgreSQLDataSource } from "./postgre.datasource";
 import { User } from "src/domain/user/user.entity";
 import { Task, TaskNotifyType } from "src/domain/task/task.entity";
 import { TaskName } from "src/domain/task/task-name.value-object";
 import { TaskSegment } from "src/domain/task/task-segment";
+import { DataSource, Repository } from "typeorm";
 
 /**
  * PostgreSQL implementation of the ITaskRepository interface using TypeORM.
  */
 @Injectable()
 export class TaskPostgreImpl implements ITaskRepository {
+	
+	private taskTable: Repository<TaskSchema>;
+
+	constructor(
+		@Inject("Datasource") private readonly datasource: DataSource
+	) {
+		this.taskTable = datasource.getRepository(TaskSchema);
+	}
 
 	/** Repository for the task table */
-	private taskTable = PostgreSQLDataSource.getRepository(TaskSchema);
 
 	/**
 	 * Creates a new task in the database for the given user.

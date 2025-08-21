@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { PostgreSQLServiceImpl } from 'src/infrastructure/database/postgresql/postgresql.impl';
 import { PostgreSQLConfig } from 'src/infrastructure/database/postgresql/postgre.datasource';
 import { TaskPostgreImpl } from 'src/infrastructure/database/postgresql/task.repository.impl';
 import { UserPostgreImpl } from 'src/infrastructure/database/postgresql/user.repository.impl';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import { ServerModule } from './server.module';
 
 /**
  * DatabaseModule
@@ -25,6 +27,7 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 	imports: [
 		// TypeOrmModule.forRoot(PostgreSQLConfig as TypeOrmModuleOptions),
 		// TypeOrmModule.forFeature([UserSchema, TaskSchema])
+		ServerModule
 	],
 	providers: [
 		{
@@ -38,8 +41,9 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 		{
 			provide: "Datasource",
 			useFactory: async () => new DataSource(PostgreSQLConfig as DataSourceOptions)
-		}
+		},
+		PostgreSQLServiceImpl
 	],
-	exports: ['IUserRepository', 'ITaskRepository'],
+	exports: ['IUserRepository', 'ITaskRepository', 'Datasource'],
 })
 export class DatabaseModule {}

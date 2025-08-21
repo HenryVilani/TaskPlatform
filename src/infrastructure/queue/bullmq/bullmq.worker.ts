@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Job, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { Task } from "src/domain/task/task.entity";
-import { HttpErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics.service";
+import { RedisServiceImpl } from "./redis.impl";
 
 /**
  * BullMQ Worker Service for processing scheduled tasks.
@@ -15,7 +15,9 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 	private worker: Worker; // BullMQ Worker instance
 	private redisConnection: Redis; // Redis connection for publishing messages
 
-	constructor() {}
+	constructor(
+		private readonly redisService: RedisServiceImpl
+	) {}
 
 	/**
 	 * Lifecycle hook called when module initializes.
@@ -40,69 +42,43 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 	private async init() {
 		this.logger.log("Initializing BullMQ Worker");
 
-		const maxAttempts = 10; // Maximum number of reconnection attempts
-		let attempts = 0;
 
-		const tryId = setInterval(async () => {
+		const redis = await this.redisService.getService();
+		if (!redis) return;
 
-			attempts++;
 
-			// Stop retrying if maximum attempts are reached, increment Prometheus counter
-			if (attempts > maxAttempts) {
-				clearInterval(tryId);
-				HttpErrorCounter.inc();
+		this.worker = new Worker("tasks", async (job: Job<Task>) => {
+			const task = job.data;
+
+			try {
+				// Publish task notification to the Redis channel for the user
+				const channel = `user:${task.user.id}:notifications`;
+				const message = JSON.stringify(task);
+				await this.redisConnection.publish(channel, message);
+
+			} catch (error) {
+				// Throw error so BullMQ can retry according to backoff policy
+				throw error;
 			}
+		}, {
+			connection: redis,
+			concurrency: 10, // Maximum number of concurrent jobs
+		});
 
-			// Initialize Redis connection
-			this.redisConnection = new Redis({
-				host: process.env.REDIS_HOST ?? "127.0.0.1",
-				port: Number(process.env.REDIS_PORT) ?? 6379,
-				maxRetriesPerRequest: null
-			});
+		// Event listeners for debugging and logging
+		this.worker.on('completed', (job) => {
+			this.logger.log(`Job ${job.id} completed successfully`);
+		});
 
-			// Test Redis connectivity
-			await this.redisConnection.ping();
-			this.logger.log("Redis connection established");
+		this.worker.on('failed', (job, err) => {
+			this.logger.error(`Job ${job?.id} failed:`, err);
+		});
 
-			// Initialize BullMQ worker to process "tasks" queue
-			this.worker = new Worker("tasks", async (job: Job<Task>) => {
-				const task = job.data;
+		this.worker.on('error', (err) => {
+			this.logger.error('Worker error:', err);
+		});
 
-				try {
-					// Publish task notification to the Redis channel for the user
-					const channel = `user:${task.user.id}:notifications`;
-					const message = JSON.stringify(task);
-					await this.redisConnection.publish(channel, message);
-
-				} catch (error) {
-					// Throw error so BullMQ can retry according to backoff policy
-					throw error;
-				}
-			}, {
-				connection: this.redisConnection,
-				concurrency: 10, // Maximum number of concurrent jobs
-			});
-
-			// Event listeners for debugging and logging
-			this.worker.on('completed', (job) => {
-				this.logger.log(`Job ${job.id} completed successfully`);
-			});
-
-			this.worker.on('failed', (job, err) => {
-				this.logger.error(`Job ${job?.id} failed:`, err);
-			});
-
-			this.worker.on('error', (err) => {
-				this.logger.error('Worker error:', err);
-			});
-
-			this.logger.log("BullMQ Worker initialized successfully");
-
-			clearInterval(tryId);
-
-			
-		}, 15000);
-
+		this.logger.log("BullMQ Worker initialized successfully");
 
 	}
 }

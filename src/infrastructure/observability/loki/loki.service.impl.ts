@@ -3,69 +3,45 @@ import { createLogger, Logger } from "winston"
 import { HttpErrorCounter } from "../prometheus/prometheus-metrics.service"
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { ILoggerRepository, LoggerType } from "src/application/services/logger.repository";
+import { LokiBaseServiceImpl } from "./loki.impl";
 
 
 @Injectable()
 export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 
 	// Winston transport used to send logs to Loki
-	private transporter: LokiTransport;
+	private transporter: LokiTransport | null = null;
 
 	// Standard Winston logger instance
 	private logger: Logger;
 
-	constructor() {}
+	constructor(
+		private readonly lokiService: LokiBaseServiceImpl
+	) {}
 
 	/**
 	 * Called automatically by NestJS after the module is initialized.
 	 * Sets up the connection to Loki and creates the logger.
 	 * Retries every 15 seconds if connection fails, up to a maximum number of attempts.
 	 */
-	onModuleInit() {
+	async onModuleInit() {
 
-		const maxAttempts = 10; // Maximum number of reconnection attempts
-		let attempts = 0;
+		const transport = await this.lokiService.getService<LokiTransport>();
+		if (!transport) {
+			this.transporter = null;
+			return;
+		}
 
-		const tryId = setInterval(() => {
+		this.transporter = transport;
+	
+		this.logger = createLogger({
+			transports: [this.transporter]
+		});
 
-			attempts++;
-
-			// Stop retrying if maximum attempts are reached, increment Prometheus counter
-			if (attempts > maxAttempts) {
-				clearInterval(tryId);
-				HttpErrorCounter.inc();
-			}
-
-			try {
-				// Create the Loki transport for Winston
-				this.transporter = new LokiTransport({
-					host: "http://loki:3100",
-					labels: {
-						app: "backend-app"
-					},
-					json: true,
-					onConnectionError: () => {
-						// Increment Prometheus counter on connection error
-						HttpErrorCounter.inc();
-					}
-				});
-
-				// Create the Winston logger using the configured transport
-				this.logger = createLogger({
-					transports: [this.transporter]
-				});
-
-				// Successfully connected, stop retry interval
-				clearInterval(tryId)
-
-			} catch {
-				// Error while initializing transport, increment Prometheus counter
-				HttpErrorCounter.inc();
-			}
-
-		}, 15000); // Retry every 15 seconds
+	
 
 	}
+
 
 	/**
 	 * Registers a log message with the logger.

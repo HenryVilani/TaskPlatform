@@ -6,6 +6,7 @@ import Redis from "ioredis"
 import { BullMQWorkerService } from "./bullmq.worker";
 import { type ITaskRepository } from "src/application/repositories/task.repository";
 import { HttpErrorCounter, QueueJobCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics.service";
+import { RedisServiceImpl } from "./redis.impl";
 
 
 /**
@@ -16,58 +17,16 @@ import { HttpErrorCounter, QueueJobCounter } from "src/infrastructure/observabil
 export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, OnModuleDestroy {
 
 	private readonly logger = new Logger(BullMQTaskScheduler.name); // Logger for internal logging
-	private queue: Queue<Job>; // BullMQ queue instance
+	private queue: Queue<Job> | null = null; // BullMQ queue instance
 	private workerService: BullMQWorkerService; // Worker service for processing jobs
 
 	constructor(
-		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository
+		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository,
+		private readonly redisService: RedisServiceImpl
 	) {
 
-		const maxAttempts = 10; // Maximum number of reconnection attempts
-		let attempts = 0;
-
-		const tryId = setInterval(() => {
-
-			attempts++;
-
-			// Stop retrying if maximum attempts are reached, increment Prometheus counter
-			if (attempts > maxAttempts) {
-				clearInterval(tryId);
-				HttpErrorCounter.inc();
-			}
-
-			try {
-
-				// Redis connection for BullMQ
-				const connection = new Redis({
-					host: process.env.REDIS_HOST ?? "redis",
-					port: Number(process.env.REDIS_PORT) ?? 6379,
-					maxRetriesPerRequest: null
-				});
-
-				// Initialize the task queue
-				this.queue = new Queue("tasks", { connection });
-				
-
-				clearInterval(tryId);
-
-
-			}catch (error) {
-
-				if (attempts >= 3) {
-
-					HttpErrorCounter.inc();
-
-				}
-
-			}
-
-
-		}, 15000);
-
 		// Initialize the worker service
-		this.workerService = new BullMQWorkerService();
-
+		this.workerService = new BullMQWorkerService(redisService);
 		
 	}
 
@@ -83,6 +42,8 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		const delay = task.notifyAt.diffNow().as('milliseconds');
 
 		try {
+
+			if (!this.queue) return;
 			
 			// Add a job to the BullMQ queue
 			const job = await this.queue.add("notify-task", task, {
@@ -112,6 +73,9 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	 * @param jobId Job identifier
 	 */
 	async removeSchedule(jobId: string): Promise<void> {
+		
+		if (!this.queue) return;
+
 		const job = await this.queue.getJob(jobId);
 		job?.remove();
 	}
@@ -122,6 +86,9 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	 * @returns Task data if found, otherwise null
 	 */
 	async getSchedule(jobId: string): Promise<Task | null> {
+		
+		if (!this.queue) return null;
+
 		const job = await this.queue.getJob(jobId);
 		return job?.data ?? null;
 	}
@@ -132,6 +99,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	 */
 	async updateSchedule(task: Task): Promise<void> {
 		if (!task.jobId) return;
+		if (!this.queue) return;
 
 		await this.queue.remove(task.jobId); // Remove old job
 		this.schedule(task);                 // Schedule updated job
@@ -142,6 +110,12 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	 * Initializes the worker service.
 	 */
 	async onModuleInit() {
+
+		const redis = await this.redisService.getService<Redis>();
+		if (!redis) return;
+
+		this.queue = new Queue("tasks", { connection: redis });
+
 		await this.workerService.onModuleInit();
 	}
 

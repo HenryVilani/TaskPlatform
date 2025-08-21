@@ -3,6 +3,9 @@ import { BullMQTaskScheduler } from 'src/infrastructure/queue/bullmq/bullmq.sche
 import { NotifyGateway } from 'src/interfaces/ws/v1/notify.gateway';
 import { AuthModule } from './auth.module';
 import { DatabaseModule } from './database.module';
+import { BullMQServiceImpl } from 'src/infrastructure/queue/bullmq/bullmq.impl';
+import { RedisServiceImpl } from 'src/infrastructure/queue/bullmq/redis.impl';
+import { ServerModule } from './server.module';
 
 /**
  * NotifyModule
@@ -25,13 +28,15 @@ import { DatabaseModule } from './database.module';
  * - ISchedulerRepository: Allows other modules to schedule tasks
  */
 @Module({
-	imports: [AuthModule, DatabaseModule],
+	imports: [AuthModule, DatabaseModule, ServerModule],
 	providers: [
 		{
 			provide: "ISchedulerRepository",
 			useClass: BullMQTaskScheduler
 		},
-		NotifyGateway
+		NotifyGateway,
+		BullMQServiceImpl,
+		RedisServiceImpl
 	],
 	exports: ['ISchedulerRepository'],
 })

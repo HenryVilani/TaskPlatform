@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from './auth.module';
 import { AccountModule } from './account.module';
 import { TasksModule } from './tasks.module';
-import { APP_GUARD, RouterModule } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR, RouterModule } from '@nestjs/core';
 import { DatabaseModule } from './database.module';
 import { NotifyModule } from './notify.module';
 import { ServerModule } from './server.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ObservabilityModule } from './observablity.module';
+import { HealthInterceptor } from 'src/infrastructure/interceptors/health.interceptor';
 
 /**
  * MainV1Module
@@ -29,13 +30,13 @@ import { ObservabilityModule } from './observablity.module';
  */
 @Module({
 	imports: [
+		ServerModule,
 		ObservabilityModule,
 		AuthModule,
 		DatabaseModule,
 		AccountModule,
 		TasksModule,
 		NotifyModule,
-		ServerModule,
 
 		// API routing for v1
 		RouterModule.register([
@@ -66,6 +67,10 @@ import { ObservabilityModule } from './observablity.module';
 			provide: APP_GUARD,
 			useClass: ThrottlerGuard, // Apply global throttling guard
 		},
+		{
+			provide: APP_INTERCEPTOR,
+			useClass: HealthInterceptor
+		}
 	],
 	exports: [
 		AuthModule,

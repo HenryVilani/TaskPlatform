@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from 'src/infrastructure/interceptors/logging.interceptor';
+import { LokiBaseServiceImpl } from 'src/infrastructure/observability/loki/loki.impl';
 import { LokiServiceImpl } from 'src/infrastructure/observability/loki/loki.service.impl';
 import { PrometheusExceptionFilter, PrometheusService } from 'src/infrastructure/observability/prometheus/prometheus.service';
 import { PrometheusController } from 'src/interfaces/http/v1/observability/prometheus.controller';
+import { ServerModule } from './server.module';
 
 /**
  * ObservabilityModule
@@ -29,7 +31,7 @@ import { PrometheusController } from 'src/interfaces/http/v1/observability/prome
  * - ILoggerRepository: Can be used by other modules to log events
  */
 @Module({
-	imports: [],
+	imports: [ServerModule],
 	providers: [
 		{
 			provide: "ILoggerRepository",
@@ -43,7 +45,8 @@ import { PrometheusController } from 'src/interfaces/http/v1/observability/prome
 			provide: APP_INTERCEPTOR,
 			useClass: LoggingInterceptor
 		},
-		PrometheusService
+		PrometheusService,
+		LokiBaseServiceImpl,
 	],
 	controllers: [PrometheusController],
 	exports: ["ILoggerRepository"],

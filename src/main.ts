@@ -2,9 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './modules/app.module';
 
-// Database Import
-import { PostgreSQLDataSource } from './infrastructure/database/postgresql/postgre.datasource';
-
 // Health Check
 import { HealthCheckService } from './infrastructure/health/health-check.service';
 
@@ -14,6 +11,7 @@ import helmet from "helmet";
 // documentation
 import { apiReference } from "@scalar/nestjs-api-reference";
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { HealthInterceptor } from './infrastructure/interceptors/health.interceptor';
 
 /**
  * Sets up Swagger/OpenAPI documentation for the application
@@ -53,25 +51,15 @@ const setupDocumentation = (app: INestApplication) => {
 async function bootstrap() {
 
 	// Wait for all services to be healthy before starting the application
-	console.log('🚀 Iniciando verificação de saúde dos serviços...');
-	const healthCheckService = new HealthCheckService();
 	
-	try {
-		await healthCheckService.waitForAllServicesHealthy({
-			maxAttempts: 60, // 60 tentativas
-			initialDelay: 3000, // 3 segundos inicial
-			maxDelay: 30000, // 30 segundos máximo
-			backoffMultiplier: 1.2 // Incremento mais suave
-		});
-	} catch (error) {
-		console.error('💥 Falha na verificação de saúde dos serviços:', error.message);
-		console.error('🛑 Encerrando aplicação...');
-		process.exit(1);
-	}
-
-
 	// Create a NestJS App
 	const app = await NestFactory.create(AppModule);
+	await app.init();
+	
+	console.log('🚀 Iniciando verificação de saúde dos serviços...');
+	const healthCheckService = await app.get(HealthCheckService)
+	
+	healthCheckService.waitServices()
 
 	// Enable CORS for cross-origin requests
 	app.enableCors();
@@ -100,11 +88,4 @@ async function bootstrap() {
 }
 
 // Bootstrap the application
-<<<<<<< Current (Your changes)
 bootstrap();
-=======
-bootstrap().catch(error => {
-	console.error('💥 Erro fatal durante a inicialização:', error);
-	process.exit(1);
-});
->>>>>>> Incoming (Background Agent changes)

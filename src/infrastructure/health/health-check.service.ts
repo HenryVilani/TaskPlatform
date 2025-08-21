@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { IBaseService } from "src/application/services/base-service.repository";
 
 export type ServiceStatus = "Health" | "UnHealth";
 
@@ -7,7 +8,7 @@ export interface IHealthServiceRepository {
 }
 
 export interface IService {
-	service: IHealthServiceRepository;
+	service: IBaseService;
 	status: ServiceStatus;
 }
 
@@ -35,7 +36,8 @@ export class HealthCheckService {
 		backoffMultiplier: 1.5
 	};
 
-	register(name: string, service: IHealthServiceRepository) {
+	register(name: string, service: IBaseService) {
+		console.log(`Register: ${name}`)
 		this.services.set(name, {
 			service: service,
 			status: "UnHealth"
@@ -51,6 +53,7 @@ export class HealthCheckService {
 	}
 
 	async waitServices(): Promise<void> {
+		console.log("services: ", this.services)
 		for (const [key, value] of this.services) {
 			let attempts = 0;
 			let delay = this.defaultRetryConfig.initialDelay;
@@ -62,7 +65,7 @@ export class HealthCheckService {
 
 				try {
 					const ok = await value.service.waitToConnect();
-					if (ok) {
+					if (ok == "Health") {
 						value.status = "Health";
 						this.logger.log(`[${key}] Conectado com sucesso ✅`);
 						connected = true;
@@ -88,5 +91,18 @@ export class HealthCheckService {
 		}
 	}
 
+	lastStatusAll(): IService[] {
+
+		let services: IService[] = [];
+
+		this.services.forEach((service, name) => {
+
+			services.push(service);
+
+		})
+
+		return services;
+
+	}
 	
 }

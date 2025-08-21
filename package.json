@@ -37,6 +37,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/luxon": "^3.7.1",
     "argon2": "^0.44.0",
+    "axios": "^1.11.0",
     "bullmq": "^5.57.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",

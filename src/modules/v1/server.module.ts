@@ -28,16 +28,11 @@ import { HealthCheckService } from 'src/infrastructure/health/health-check.servi
  * - None
  */
 @Module({
-	imports: [
-		DatabaseModule,
-		AuthModule,
-		AccountModule
-	],
 	controllers: [ServerController],
 	providers: [
 		HealthCheckUseCase,
 		HealthCheckService
 	],
-	exports: []
+	exports: [HealthCheckService]
 })
 export class ServerModule {}

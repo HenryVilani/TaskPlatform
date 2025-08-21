@@ -10,6 +10,7 @@ import { BaseError } from "src/application/erros/base.errors";
 import { ApiExtraModels, ApiOperation, ApiResponse, getSchemaPath } from "@nestjs/swagger";
 import { UserAuthDTO } from "./dtos/auth.dtos";
 import { JWTGuard } from "src/infrastructure/auth/jwt/jwt.guard";
+import { HealthCheckGuard } from "src/infrastructure/health/health.guard";
 
 @ApiExtraModels(StatusDTO, UserAuthDTO)
 @Controller("account")
@@ -25,6 +26,7 @@ export class AccoutController {
      * Requires JWT authentication.
      */
     @UseGuards(JWTGuard)
+	@UseGuards(HealthCheckGuard)
     @Get("me")
     @ApiOperation({ 
         summary: "Me",

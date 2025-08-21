@@ -11,7 +11,6 @@ import helmet from "helmet";
 // documentation
 import { apiReference } from "@scalar/nestjs-api-reference";
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { HealthInterceptor } from './infrastructure/interceptors/health.interceptor';
 
 /**
  * Sets up Swagger/OpenAPI documentation for the application
@@ -27,6 +26,10 @@ const setupDocumentation = (app: INestApplication) => {
 		.build();
 
 	const documentSwaggerV1 = SwaggerModule.createDocument(app, configV1);
+
+	// SwaggerModule.setup('api-docs', app, documentSwaggerV1, {
+	// 	customCss: 
+	// });
 
 	app.use("/api-docs/v1", apiReference({
 		content: documentSwaggerV1,
@@ -54,12 +57,14 @@ async function bootstrap() {
 	
 	// Create a NestJS App
 	const app = await NestFactory.create(AppModule);
+	// Setup Swagger documentation
+	setupDocumentation(app);
 	await app.init();
 	
 	console.log('🚀 Iniciando verificação de saúde dos serviços...');
 	const healthCheckService = await app.get(HealthCheckService)
 	
-	healthCheckService.waitServices()
+	await healthCheckService.waitServices()
 
 	// Enable CORS for cross-origin requests
 	app.enableCors();
@@ -77,11 +82,9 @@ async function bootstrap() {
 	// Apply security headers
 	app.use(helmet());
 
-	// Setup Swagger documentation
-	setupDocumentation(app);
 
 	// Start the server
-	const port = process.env.PORT ?? 3000;
+	const port = process.env.PORT ?? 8080;
 	await app.listen(port);
 	console.log(`✅ Aplicação iniciada com sucesso na porta ${port}`);
 	console.log(`📚 Documentação da API disponível em: http://localhost:${port}/api-docs/v1`);

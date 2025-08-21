@@ -4,6 +4,7 @@ import { DeleteAccountUseCase } from '../../application/use-cases/account/delete
 import { InfoAccountUseCase } from 'src/application/use-cases/account/info.usecase';
 import { DatabaseModule } from './database.module';
 import { AuthModule } from './auth.module';
+import { ServerModule } from './server.module';
 
 /**
  * AccountModule
@@ -29,7 +30,8 @@ import { AuthModule } from './auth.module';
 @Module({
 	imports: [
 		DatabaseModule,
-		AuthModule
+		AuthModule,
+		ServerModule
 	],
 	controllers: [AccoutController],
 	providers: [

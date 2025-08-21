@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PostgreSQLServiceImpl } from 'src/infrastructure/database/postgresql/postgresql.impl';
+import { PostgreSQLServiceImpl } from 'src/infrastructure/database/postgresql/postgresql.health';
 import { PostgreSQLConfig } from 'src/infrastructure/database/postgresql/postgre.datasource';
 import { TaskPostgreImpl } from 'src/infrastructure/database/postgresql/task.repository.impl';
 import { UserPostgreImpl } from 'src/infrastructure/database/postgresql/user.repository.impl';

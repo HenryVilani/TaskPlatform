@@ -29,6 +29,8 @@ services:
   redis:
     container_name: redis
     image: redis:7
+    ports:
+      - 6379:6379
     networks:
       - backend-network
     volumes:
@@ -53,6 +55,7 @@ services:
       - prometheus
       - redis-exporter
       - database
+  
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -86,6 +89,8 @@ services:
     # image: grafana/loki:2.3.0
     image: grafana/loki:latest
     container_name: loki
+    ports:
+      - 3100:3100
     networks:
       - backend-network
     command: -config.file=/etc/loki/loki-config.yaml
@@ -94,7 +99,6 @@ services:
       - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml
     user: "0"
 
-  
 volumes:
   redis-data:
   database-data:

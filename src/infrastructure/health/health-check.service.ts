@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { IBaseService } from "src/application/services/base-service.repository";
+import { IHealthService } from "src/application/services/health-service.repository";
 
 export type ServiceStatus = "Health" | "UnHealth";
 
@@ -7,8 +7,9 @@ export interface IHealthServiceRepository {
 	waitToConnect(): Promise<boolean>;
 }
 
-export interface IService {
-	service: IBaseService;
+export interface IService<TService extends IHealthService = IHealthService> {
+	name: string;
+	service: TService;
 	status: ServiceStatus;
 }
 
@@ -36,11 +37,12 @@ export class HealthCheckService {
 		backoffMultiplier: 1.5
 	};
 
-	register(name: string, service: IBaseService) {
+	register(name: string, service: IHealthService) {
 		console.log(`Register: ${name}`)
 		this.services.set(name, {
+			name,
 			service: service,
-			status: "UnHealth"
+			status: "UnHealth",
 		});
 	}
 
@@ -48,12 +50,15 @@ export class HealthCheckService {
 		this.services.delete(name);
 	}
 
-	getService(name: string): IService | null {
-		return this.services.get(name) ?? null;
+	getService<T extends IHealthService>(name: string): IService<T> | null {
+
+		return this.services.get(name) as IService<T> ?? null;
+		
 	}
 
 	async waitServices(): Promise<void> {
-		console.log("services: ", this.services)
+		
+
 		for (const [key, value] of this.services) {
 			let attempts = 0;
 			let delay = this.defaultRetryConfig.initialDelay;
@@ -64,7 +69,7 @@ export class HealthCheckService {
 				this.logger.log(`[${key}] Tentando conexão (tentativa ${attempts})...`);
 
 				try {
-					const ok = await value.service.waitToConnect();
+					const ok = await value.service.isHealth();
 					if (ok == "Health") {
 						value.status = "Health";
 						this.logger.log(`[${key}] Conectado com sucesso ✅`);
@@ -89,6 +94,39 @@ export class HealthCheckService {
 				value.status = "UnHealth";
 			}
 		}
+
+	}
+
+	async checkAllServices(): Promise<IService[]> {
+
+		let services: IService[] = [];
+
+		for (const [name, value] of this.services) {
+
+			try {
+
+				const status = await value.service.isHealth();
+
+				services.push({
+					name,
+					service: value.service,
+					status
+				})
+
+			}catch (err) {
+
+				services.push({
+					name,
+					service: value.service,
+					status: "UnHealth"
+				})
+
+			}
+
+		}
+
+		return services;
+
 	}
 
 	lastStatusAll(): IService[] {

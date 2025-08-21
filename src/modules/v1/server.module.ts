@@ -31,7 +31,7 @@ import { HealthCheckService } from 'src/infrastructure/health/health-check.servi
 	controllers: [ServerController],
 	providers: [
 		HealthCheckUseCase,
-		HealthCheckService
+		HealthCheckService,
 	],
 	exports: [HealthCheckService]
 })

@@ -7,6 +7,7 @@ import { TaskController } from '../../interfaces/http/v1/task.controller';
 import { DatabaseModule } from './database.module';
 import { AuthModule } from './auth.module';
 import { NotifyModule } from './notify.module';
+import { ServerModule } from './server.module';
 
 /**
  * TasksModule
@@ -41,6 +42,7 @@ import { NotifyModule } from './notify.module';
 		DatabaseModule,
 		AuthModule,
 		NotifyModule,
+		ServerModule
 	],
 	controllers: [TaskController],
 	providers: [

@@ -1,10 +1,11 @@
-import { Body, Controller, Logger, Post } from "@nestjs/common";
+import { Body, Controller, Logger, Post, UseGuards } from "@nestjs/common";
 import { UserAuthDTO } from "./dtos/auth.dtos";
 import { RegisterUserUseCase } from "src/application/use-cases/auth/register.usecase";
 import { LoginUseCase } from "src/application/use-cases/auth/login.usecase";
 import { StatusDTO } from "src/application/dtos/status.dto";
 import { BaseError } from "src/application/erros/base.errors";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { HealthCheckGuard } from "src/infrastructure/health/health.guard";
 
 @Controller()
 export class AuthController {
@@ -19,6 +20,7 @@ export class AuthController {
 	 * Accepts email and password, validates, and creates user.
 	 */
 	@Post("register")
+	@UseGuards(HealthCheckGuard)
 	@ApiOperation({
 		summary: "Register",
 		description: "Register new user"
@@ -79,6 +81,7 @@ export class AuthController {
 	 * Accepts email and password, validates credentials, and returns a token.
 	 */
 	@Post("login")
+	@UseGuards(HealthCheckGuard)
 	@ApiOperation({
 		summary: "Login",
 		description: "Login user and return a token"

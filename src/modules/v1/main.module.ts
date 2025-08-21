@@ -8,7 +8,7 @@ import { NotifyModule } from './notify.module';
 import { ServerModule } from './server.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ObservabilityModule } from './observablity.module';
-import { HealthInterceptor } from 'src/infrastructure/interceptors/health.interceptor';
+import { HealthCheckGuard } from 'src/infrastructure/health/health.guard';
 
 /**
  * MainV1Module
@@ -68,8 +68,8 @@ import { HealthInterceptor } from 'src/infrastructure/interceptors/health.interc
 			useClass: ThrottlerGuard, // Apply global throttling guard
 		},
 		{
-			provide: APP_INTERCEPTOR,
-			useClass: HealthInterceptor
+			provide: APP_GUARD,
+			useClass: HealthCheckGuard
 		}
 	],
 	exports: [

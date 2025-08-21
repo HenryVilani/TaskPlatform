@@ -26,13 +26,16 @@ import { join } from 'path';
  * Providers:
  * - None
  */
+
+console.log(join(__dirname, '..', '..', '..', 'public'))
+
 @Module({
 	imports: [
 		MainV1Module,
 
 		ServeStaticModule.forRoot({
-			rootPath: join(__dirname, '..', '..', '..', 'node_modules', '@scalar', 'api-reference', 'dist', 'browser'),
-			serveRoot: '/scalar',
+			rootPath: join(__dirname, '..', '..', '..', 'public'),
+			serveRoot: '/',
 		}),
 
 	],

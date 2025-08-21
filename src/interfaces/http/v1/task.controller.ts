@@ -11,6 +11,7 @@ import { BaseError } from "src/application/erros/base.errors";
 import { ApiBody, ApiExtraModels, ApiOperation, ApiResponse, ApiTags, getSchemaPath } from "@nestjs/swagger";
 import { TaskCreateDTO, TaskDTO, TaskIdentifierDTO, TaskFetchSegmentDTO, TaskUpdateDTO, TaskReturnSegmentDTO } from "./dtos/task.dto";
 import { JWTGuard } from "src/infrastructure/auth/jwt/jwt.guard";
+import { HealthCheckGuard } from "src/infrastructure/health/health.guard";
 
 @ApiExtraModels(StatusDTO, TaskDTO)
 @ApiTags("Task")
@@ -29,6 +30,7 @@ export class TaskController {
 	 * Creates a new task for the authenticated user.
 	 */
 	@UseGuards(JWTGuard)
+	@UseGuards(HealthCheckGuard)
 	@Post("create")
 	@ApiOperation({ summary: "Create", description: "Create a task" })
 	@ApiResponse({
@@ -60,6 +62,7 @@ export class TaskController {
 	 * Updates an existing task for the authenticated user.
 	 */
 	@UseGuards(JWTGuard)
+	@UseGuards(HealthCheckGuard)
 	@Post("update")
 	@ApiOperation({ summary: "Update", description: "Update an existing task" })
 	@ApiBody({ type: TaskUpdateDTO })
@@ -91,6 +94,7 @@ export class TaskController {
 	 * Deletes a task by its ID for the authenticated user.
 	 */
 	@UseGuards(JWTGuard)
+	@UseGuards(HealthCheckGuard)
 	@Post("delete")
 	@ApiOperation({ summary: "Delete", description: "Delete a task" })
 	@ApiBody({ type: TaskIdentifierDTO })
@@ -112,6 +116,7 @@ export class TaskController {
 	 * Returns a paginated list of tasks for the authenticated user.
 	 */
 	@UseGuards(JWTGuard)
+	@UseGuards(HealthCheckGuard)
 	@Post("list")
 	@ApiOperation({ summary: "List", description: "List tasks" })
 	@ApiResponse({

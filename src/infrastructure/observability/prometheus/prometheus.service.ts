@@ -1,7 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { Request, Response } from "express";
 import * as client from "prom-client"
-import { HttpErrorCounter } from "./prometheus-metrics.service";
+import { HttpErrorCounter } from "./prometheus-metrics";
 import { type ILoggerRepository } from "src/application/services/logger.repository";
 
 

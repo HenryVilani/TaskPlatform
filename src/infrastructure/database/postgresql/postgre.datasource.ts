@@ -10,7 +10,7 @@ export const PostgreSQLConfig = {
 	/** Database type */
 	type: "postgres",
 	/** Database host, loaded from environment variables */
-	host: process.env.POSTGRES_HOST,
+	host: "localhost", // process.env.POSTGRES_HOST
 	/** Database username, loaded from environment variables */
 	username: process.env.POSTGRES_USER,
 	/** Database password, loaded from environment variables */

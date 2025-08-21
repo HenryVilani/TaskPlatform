@@ -1,9 +1,9 @@
 import LokiTransport from "winston-loki";
 import { createLogger, Logger } from "winston"
-import { HttpErrorCounter } from "../prometheus/prometheus-metrics.service"
+import { HttpErrorCounter } from "../prometheus/prometheus-metrics"
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { ILoggerRepository, LoggerType } from "src/application/services/logger.repository";
-import { LokiBaseServiceImpl } from "./loki.impl";
+import { LokiBaseServiceImpl } from "./loki.health";
 
 
 @Injectable()
@@ -13,7 +13,7 @@ export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 	private transporter: LokiTransport | null = null;
 
 	// Standard Winston logger instance
-	private logger: Logger;
+	private logger: Logger | null = null;
 
 	constructor(
 		private readonly lokiService: LokiBaseServiceImpl
@@ -29,6 +29,7 @@ export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 		const transport = await this.lokiService.getService<LokiTransport>();
 		if (!transport) {
 			this.transporter = null;
+			this.logger = null;
 			return;
 		}
 
@@ -37,8 +38,6 @@ export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 		this.logger = createLogger({
 			transports: [this.transporter]
 		});
-
-	
 
 	}
 
@@ -52,8 +51,7 @@ export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 	 */
 	register(type: LoggerType, id: string, data: object) {
 
-		// Also print to console for immediate visibility
-		console.log(`${type} - ${id} -> ${JSON.stringify(data)}`)
+		if (!this.logger) return;
 
 		switch (type) {
 			case "Info":

@@ -4,6 +4,7 @@ import { RegisterUserUseCase } from '../../application/use-cases/auth/register.u
 import { LoginUseCase } from '../../application/use-cases/auth/login.usecase';
 import { JWTImpl } from 'src/infrastructure/auth/jwt/jwt.repository.impl';
 import { DatabaseModule } from './database.module';
+import { ServerModule } from './server.module';
 
 /**
  * AuthModule
@@ -27,7 +28,7 @@ import { DatabaseModule } from './database.module';
  * - IAuthRepository: Can be used by other modules for authentication purposes
  */
 @Module({
-	imports: [DatabaseModule],
+	imports: [DatabaseModule, ServerModule],
 	controllers: [AuthController],
 	providers: [
 		{

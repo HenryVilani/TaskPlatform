@@ -5,7 +5,7 @@ import { Task } from "src/domain/task/task.entity";
 import Redis from "ioredis"
 import { BullMQWorkerService } from "./bullmq.worker";
 import { type ITaskRepository } from "src/application/repositories/task.repository";
-import { HttpErrorCounter, QueueJobCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics.service";
+import { HttpErrorCounter, QueueJobCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 import { RedisServiceImpl } from "./redis.impl";
 
 
@@ -114,9 +114,14 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		const redis = await this.redisService.getService<Redis>();
 		if (!redis) return;
 
-		this.queue = new Queue("tasks", { connection: redis });
+		if (await this.redisService.isHealth() == "Health") {
+
+			this.queue = new Queue("tasks", { connection: redis });
+
+		}
 
 		await this.workerService.onModuleInit();
+
 	}
 
 	/**

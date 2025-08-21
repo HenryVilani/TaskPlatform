@@ -43,7 +43,7 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 		this.logger.log("Initializing BullMQ Worker");
 
 
-		const redis = await this.redisService.getService();
+		const redis = await this.redisService.getService<Redis>();
 		if (!redis) return;
 
 

@@ -8,7 +8,9 @@ import { type ITaskRepository } from "src/application/repositories/task.reposito
 import { type IUserRepository } from "src/application/repositories/user.respotory";
 import { WSNotifyDTO } from "./dto/notify.dto";
 import { type ISchedulerRepository } from "src/application/services/scheduler.repository";
-import { HttpErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics.service";
+import { HttpErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
+import { HealthCheckService } from "src/infrastructure/health/health-check.service";
+import { RedisServiceImpl } from "src/infrastructure/queue/bullmq/redis.impl";
 
 /**
  * WebSocket Gateway for task notifications.
@@ -30,14 +32,12 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	@WebSocketServer()
 	private server: Server;
 
-	/** @type {Redis} Redis subscriber instance */
-	private redisSub: Redis;
-
 	constructor(
 		@Inject("IAuthRepository") private readonly authRepository: IAuthRepository,
 		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository,
 		@Inject("IUserRepository") private readonly userRepository: IUserRepository,
 		@Inject("ISchedulerRepository") private readonly scheduleRepository: ISchedulerRepository,
+		private readonly healthCheck: HealthCheckService
 	) {}
 
 	/**
@@ -46,39 +46,20 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	 */
 	async onModuleInit() {
 
-		const maxAttempts = 10; // Maximum number of reconnection attempts
-		let attempts = 0;
+		const redisService = this.healthCheck.getService<RedisServiceImpl>("redis");
+		if (!redisService) return;
 
-		const tryId = setInterval(async () => {
+		const redis = await redisService.service.getService<Redis>();
+		if (!redis) return;
 
-			attempts++;
-
-			// Stop retrying if maximum attempts are reached, increment Prometheus counter
-			if (attempts > maxAttempts) {
-				clearInterval(tryId);
-				HttpErrorCounter.inc();
-			}
-
-			this.redisSub = new Redis({
-				host: process.env.REDIS_HOST ?? "127.0.0.1",
-				port: Number(process.env.REDIS_PORT) ?? 6379,
-				maxRetriesPerRequest: null
-			});
+		redis.psubscribe("user:*:notifications");
 	
-			await this.redisSub.ping();
-	
-			// Subscribe to all user notification channels
-			this.redisSub.psubscribe("user:*:notifications");
-	
-			// Handle incoming Redis messages
-			this.redisSub.on('pmessage', (pattern: string, channel: string, message: string) => {
-				console.log(`[Redis] Received message on pattern: ${pattern}, channel: ${channel}`);
-				this.subscriberCallback(pattern, channel, message);
-			});
+		// Handle incoming Redis messages
+		redis.on('pmessage', (pattern: string, channel: string, message: string) => {
+			console.log(`[Redis] Received message on pattern: ${pattern}, channel: ${channel}`);
+			this.subscriberCallback(pattern, channel, message);
+		});
 
-			clearInterval(tryId);
-
-		}, 15000);
 
 	}
 

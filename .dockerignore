@@ -6,3 +6,6 @@ Dockerfile
 .gitignore
 .env
 src/test
+
+.editorconfig
+.prettierrc

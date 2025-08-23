@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { IHealthService, HealthServiceStatus } from "src/application/services/health-service.repository";
+import { ServiceDisconnectedCounter, ServiceErrorCounter } from "../observability/prometheus/prometheus-metrics";
 
 export type ServiceStatus = "Health" | "UnHealth";
 
@@ -197,10 +198,11 @@ export class HealthCheckService {
 			const status = await this.checkServiceWithTimeout(serviceName, 4000);
 			
 			if (status === "Health") {
-				this.logger.log(`✅ Service ${serviceName} reconnected successfully`);
 				serviceInfo.consecutiveFailures = 0; // Reset counter
 			} else {
-				this.logger.warn(`❌ Service ${serviceName} still unhealthy (${serviceInfo.consecutiveFailures} failures)`);
+				ServiceDisconnectedCounter.inc({
+					service: serviceName
+				})
 				// Re-queue for retry with longer delay
 				setTimeout(() => {
 					this.scheduleReconnection(serviceName);
@@ -208,6 +210,9 @@ export class HealthCheckService {
 			}
 		} catch (error) {
 			this.logger.error(`💥 Failed to reconnect ${serviceName}: ${error.message}`);
+			ServiceErrorCounter.inc({
+				service: serviceName
+			})
 			serviceInfo.lastError = error.message;
 			
 			// Re-queue for retry with exponential backoff

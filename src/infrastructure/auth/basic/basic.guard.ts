@@ -13,8 +13,8 @@ export class BasicGuard implements CanActivate {
 
 	/**
 	 * Determines whether the current request is allowed to proceed.
-	 * @param context The execution context of the current request.
-	 * @returns True if authentication succeeds, false otherwise.
+	 * @param {ExecutionContext} context - The execution context of the current request.
+	 * @returns {boolean} True if authentication succeeds, false otherwise.
 	 * If authentication fails, responds with 401 and a StatusDTO message.
 	 */
 	canActivate(context: ExecutionContext): boolean {

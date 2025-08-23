@@ -6,11 +6,27 @@ import { DataSource, DataSourceOptions } from "typeorm";
 import { PostgreSQLConfig } from "./postgre.datasource";
 import { ServiceErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 
+/**
+ * PostgreSQL health service implementation that manages database connections and health checks.
+ * Implements health monitoring for the PostgreSQL database service.
+ */
 @Injectable()
 export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnModuleDestroy {
 
+	/**
+	 * Connection name identifier for the database service
+	 * @private
+	 * @readonly
+	 * @type {string}
+	 */
 	private readonly connectionName = "database";
 
+	/**
+	 * Constructor for PostgreSQL health service.
+	 * @param {DataSource} datasource - The TypeORM DataSource instance
+	 * @param {HealthCheckService} healthCheck - Health check service for monitoring
+	 * @param {ConnectionManager} connectionManager - Connection manager for handling database connections
+	 */
 	constructor(
 		@Inject("Datasource") private readonly datasource: DataSource,
 		private readonly healthCheck: HealthCheckService,
@@ -18,16 +34,27 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 
 	) {}
 
+	/**
+	 * Lifecycle hook called after module initialization.
+	 * Registers this service with the health check system.
+	 */
 	onModuleInit() {
-		
 		this.healthCheck.register(this.connectionName, this);
-
 	}
 
+	/**
+	 * Lifecycle hook called before module destruction.
+	 * Disconnects database connections gracefully.
+	 * @returns {Promise<void>}
+	 */
 	async onModuleDestroy() {
 		this.connectionManager.disconnect(this.connectionName);
 	}
 
+	/**
+	 * Performs health check on the PostgreSQL database.
+	 * @returns {Promise<HealthServiceStatus>} Health status ("Health" or "UnHealth")
+	 */
 	async isHealth(): Promise<HealthServiceStatus> {
 		
 		try {
@@ -75,6 +102,12 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 
 	}
 
+	/**
+	 * Creates a new database connection using the injected DataSource.
+	 * @private
+	 * @returns {Promise<DataSource>} The initialized DataSource instance
+	 * @throws {Error} If connection initialization fails
+	 */
 	private async createDatabaseConnection(): Promise<DataSource> {
 		const datasource = this.datasource
 
@@ -93,6 +126,11 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 		return datasource;
 	}
 
+	/**
+	 * Gets the database service if it's healthy.
+	 * @template T
+	 * @returns {Promise<T | null>} The database service instance or null if unhealthy
+	 */
 	async getService<T>(): Promise<T | null> {
 
 		const healthStatus = await this.isHealth();

@@ -6,15 +6,27 @@ import { tap} from "rxjs/operators"
 import { TokenDataDTO } from "src/application/dtos/token.dto";
 import { type ILoggerRepository } from "src/application/services/logger.repository";
 
-
+/**
+ * Interceptor that logs HTTP requests and responses.
+ * Captures request details, response times, and user information for monitoring.
+ */
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-	private readonly logger = new Logger("HTTP");
 
+	/**
+	 * Constructor for LoggingInterceptor.
+	 * @param {ILoggerRepository} loggerService - Service for structured logging
+	 */
 	constructor(
 		@Inject("ILoggerRepository") private readonly loggerService: ILoggerRepository
 	) {}
 
+	/**
+	 * Intercepts HTTP requests to log request and response information.
+	 * @param {ExecutionContext} context - The execution context
+	 * @param {CallHandler<any>} next - The next handler in the chain
+	 * @returns {Observable<any> | Promise<Observable<any>>} Observable of the response
+	 */
 	intercept(context: ExecutionContext, next: CallHandler<any>): Observable<any> | Promise<Observable<any>> {
 	
 		const request = context.switchToHttp().getRequest<Request>();
@@ -56,7 +68,5 @@ export class LoggingInterceptor implements NestInterceptor {
 		)
 		
 	}
-
-
 
 }

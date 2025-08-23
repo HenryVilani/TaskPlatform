@@ -5,6 +5,8 @@ import { DataSourceOptions } from "typeorm";
 
 /**
  * Configuration object for PostgreSQL using TypeORM.
+ * Contains all necessary connection parameters and settings.
+ * @type {Object}
  */
 export const PostgreSQLConfig = {
 	/** Database type */
@@ -24,9 +26,3 @@ export const PostgreSQLConfig = {
 	/** Entities used by TypeORM */
 	entities: [UserSchema, TaskSchema],
 };
-
-/**
- * TypeORM DataSource instance for PostgreSQL.
- * Can be used to initialize database connections.
- */
-//export const PostgreSQLDataSource = new DataSource(PostgreSQLConfig as DataSourceOptions);

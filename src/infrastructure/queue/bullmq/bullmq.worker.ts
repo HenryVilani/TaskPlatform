@@ -3,7 +3,7 @@ import { Job, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { Task } from "src/domain/task/task.entity";
 import { RedisServiceImpl } from "./redis.impl";
-import { ServiceErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
+import { ServiceDisconnectedCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 
 /**
  * BullMQ Worker Service melhorado com health check integration

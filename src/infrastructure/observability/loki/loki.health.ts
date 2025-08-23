@@ -6,18 +6,43 @@ import axios from "axios";
 import { ConnectionManager } from "src/infrastructure/health/connection-manager";
 import { ServiceErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 
+/**
+ * Health service implementation for Loki logging system.
+ * Manages Loki connections and provides health monitoring for the logging service.
+ */
 @Injectable()
 export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModuleDestroy {
 
+	/**
+	 * Connection name identifier for the Loki service
+	 * @private
+	 * @readonly
+	 * @type {string}
+	 */
 	private readonly connectionName = "log";
 
+	/**
+	 * Loki transport instance for Winston logging
+	 * @private
+	 * @type {LokiTransport | null}
+	 */
 	private loki: LokiTransport | null = null;
 
+	/**
+	 * Constructor for Loki health service.
+	 * @param {HealthCheckService} healthCheck - Health check service for monitoring
+	 * @param {ConnectionManager} connectionManager - Connection manager for handling Loki connections
+	 */
 	constructor(
 		private readonly healthCheck: HealthCheckService,
 		private readonly connectionManager: ConnectionManager
 	) {}
 
+	/**
+	 * Lifecycle hook called after module initialization.
+	 * Registers this service with health check and creates initial Loki connection.
+	 * @returns {Promise<void>}
+	 */
 	async onModuleInit() {
 
 		// Registra no health check
@@ -28,6 +53,11 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 
 	}
 
+	/**
+	 * Lifecycle hook called before module destruction.
+	 * Disconnects Loki connections gracefully.
+	 * @returns {Promise<void>}
+	 */
 	async onModuleDestroy() {
 
 		await this.connectionManager.disconnect(this.connectionName);
@@ -36,6 +66,7 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 
 	/**
 	 * Health check via endpoint /ready do Loki
+	 * @returns {Promise<HealthServiceStatus>} Health status ("Health" or "UnHealth")
 	 */
 	async isHealth(): Promise<HealthServiceStatus> {
 		const url = (process.env.LOKI_URL ?? "http://localhost:3100") + "/ready";
@@ -49,7 +80,9 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 	}
 
 	/**
-	 * Retorna a instância Loki se estiver healthy
+	 * Gets the Loki service if it's healthy.
+	 * @template T
+	 * @returns {Promise<T | null>} The Loki service instance or null if unhealthy
 	 */
 	async getService<T>(): Promise<T | null> {
 
@@ -74,7 +107,8 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 	}
 
 	/**
-	 * Retorna Loki somente se estiver healthy (para uso em loggers)
+	 * Gets a healthy Loki connection for use in loggers.
+	 * @returns {Promise<LokiTransport | null>} Loki transport instance or null if unhealthy
 	 */
 	async getHealthyConnection(): Promise<LokiTransport | null> {
 
@@ -98,7 +132,10 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 	}
 
 	/**
-	 * Cria nova instância de LokiTransport
+	 * Creates a new LokiTransport instance.
+	 * @private
+	 * @returns {Promise<LokiTransport>} New Loki transport instance
+	 * @throws {Error} If Loki service is unhealthy
 	 */
 	private async createLokiConnection(): Promise<LokiTransport> {
 
@@ -125,7 +162,8 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 	}
 
 	/**
-	 * Força reset da conexão Loki
+	 * Forces a reset of the Loki connection.
+	 * @returns {Promise<void>}
 	 */
 	async resetConnection(): Promise<void> {
 

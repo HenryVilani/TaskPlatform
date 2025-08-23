@@ -5,16 +5,31 @@ import { Injectable, OnModuleInit } from "@nestjs/common";
 import { ILoggerRepository, LoggerType } from "src/application/services/logger.repository";
 import { LokiBaseServiceImpl } from "./loki.health";
 
-
+/**
+ * Loki logging service implementation.
+ * Provides structured logging capabilities through Winston and Loki integration.
+ */
 @Injectable()
 export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 
-	// Winston transport used to send logs to Loki
+	/**
+	 * Winston transport used to send logs to Loki
+	 * @private
+	 * @type {LokiTransport | null}
+	 */
 	private transporter: LokiTransport | null = null;
 
-	// Standard Winston logger instance
+	/**
+	 * Standard Winston logger instance
+	 * @private
+	 * @type {Logger | null}
+	 */
 	private logger: Logger | null = null;
 
+	/**
+	 * Constructor for Loki service.
+	 * @param {LokiBaseServiceImpl} lokiService - Base Loki service for health management
+	 */
 	constructor(
 		private readonly lokiService: LokiBaseServiceImpl
 	) {}
@@ -23,6 +38,7 @@ export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 	 * Called automatically by NestJS after the module is initialized.
 	 * Sets up the connection to Loki and creates the logger.
 	 * Retries every 15 seconds if connection fails, up to a maximum number of attempts.
+	 * @returns {Promise<void>}
 	 */
 	async onModuleInit() {
 
@@ -41,13 +57,12 @@ export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
 
 	}
 
-
 	/**
 	 * Registers a log message with the logger.
 	 * Supports different log levels: Info, Warn, and Error.
-	 * @param type The log level (Info, Warn, Error)
-	 * @param id A unique identifier or title for the log
-	 * @param data The payload or context object to log
+	 * @param {LoggerType} type - The log level (Info, Warn, Error)
+	 * @param {string} id - A unique identifier or title for the log
+	 * @param {object} data - The payload or context object to log
 	 */
 	register(type: LoggerType, id: string, data: object) {
 

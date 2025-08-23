@@ -9,6 +9,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HealthCheckUseCase } from "src/application/use-cases/server/health-check.use-case";
 import { ServerHealthDTO } from "src/application/dtos/server.dto";
+import { HealthCheckService } from "src/infrastructure/health/health-check.service";
 
 describe('Health Check UseCase', () => {
 
@@ -17,7 +18,7 @@ describe('Health Check UseCase', () => {
 	beforeEach(async () => {
 
 		const app: TestingModule = await Test.createTestingModule({
-			providers: [HealthCheckUseCase]
+			providers: [HealthCheckService, HealthCheckUseCase]
 		}).compile();
 
 		healthCheckUseCase = app.get<HealthCheckUseCase>(HealthCheckUseCase);

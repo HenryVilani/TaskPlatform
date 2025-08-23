@@ -12,7 +12,7 @@ export class JWTGuard implements CanActivate {
 
 	/**
 	 * Constructs the JWTGuard with an authentication repository.
-	 * @param authRepository Repository responsible for token validation and generation.
+	 * @param {IAuthRepository} authRepository - Repository responsible for token validation and generation.
 	 */
 	constructor(
 		@Inject("IAuthRepository") private readonly authRepository: IAuthRepository
@@ -20,8 +20,8 @@ export class JWTGuard implements CanActivate {
 
 	/**
 	 * Determines whether the current request is allowed to proceed.
-	 * @param context The execution context of the current request.
-	 * @returns True if the token is valid, false otherwise.
+	 * @param {ExecutionContext} context - The execution context of the current request.
+	 * @returns {boolean} True if the token is valid, false otherwise.
 	 * If authentication fails, responds with 401 and a StatusDTO message.
 	 */
 	canActivate(context: ExecutionContext): boolean {

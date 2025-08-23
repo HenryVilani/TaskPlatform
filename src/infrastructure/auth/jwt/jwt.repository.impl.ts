@@ -11,14 +11,19 @@ import { Password } from "src/domain/user/password.value-object";
  */
 @Injectable()
 export class JWTImpl implements IAuthRepository {
-	/** Secret key used to sign and verify JWT tokens */
+	/**
+	 * Secret key used to sign and verify JWT tokens
+	 * @private
+	 * @readonly
+	 * @type {string}
+	 */
 	private readonly secret = process.env.JWT_SECRET || "secret";
 
 	/**
 	 * Authenticates a user by verifying the provided password.
-	 * @param user The user entity to authenticate.
-	 * @param tryPassword The plain password to verify.
-	 * @returns True if the password is correct, false otherwise.
+	 * @param {User} user - The user entity to authenticate.
+	 * @param {string} tryPassword - The plain password to verify.
+	 * @returns {Promise<boolean>} True if the password is correct, false otherwise.
 	 */
 	async authenticate(user: User, tryPassword: string): Promise<boolean> {
 		const validPassword = await Password.create(tryPassword);
@@ -27,9 +32,9 @@ export class JWTImpl implements IAuthRepository {
 
 	/**
 	 * Checks if the user has the required role.
-	 * @param user The user entity.
-	 * @param role The role to check against.
-	 * @returns True if the user's role matches, false otherwise.
+	 * @param {User} user - The user entity.
+	 * @param {UserRole} role - The role to check against.
+	 * @returns {Promise<boolean>} True if the user's role matches, false otherwise.
 	 */
 	async authorize(user: User, role: UserRole): Promise<boolean> {
 		return user.role == role;
@@ -37,8 +42,8 @@ export class JWTImpl implements IAuthRepository {
 
 	/**
 	 * Generates a JWT token for the user.
-	 * @param user The user entity.
-	 * @returns A signed JWT string containing the user's id and email.
+	 * @param {User} user - The user entity.
+	 * @returns {string} A signed JWT string containing the user's id and email.
 	 */
 	getToken(user: User): string {
 		const payload = {
@@ -50,8 +55,8 @@ export class JWTImpl implements IAuthRepository {
 
 	/**
 	 * Validates a JWT token.
-	 * @param token The JWT string to validate.
-	 * @returns The decoded payload if the token is valid.
+	 * @param {string} token - The JWT string to validate.
+	 * @returns {any} The decoded payload if the token is valid.
 	 * @throws {InvalidToken} If the token is invalid or expired.
 	 */
 	validateToken(token: string): any {

@@ -3,7 +3,7 @@ import Redis from "ioredis";
 import { IHealthService, HealthServiceStatus } from "src/application/services/health-service.repository";
 import { HealthCheckService } from "src/infrastructure/health/health-check.service";
 import { ConnectionManager } from "src/infrastructure/health/connection-manager";
-import { ServiceErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
+import { ServiceDisconnectedCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 
 @Injectable()
 export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleDestroy {

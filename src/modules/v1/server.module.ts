@@ -1,9 +1,6 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from './database.module';
-import { AuthModule } from './auth.module';
 import { HealthCheckUseCase } from 'src/application/use-cases/server/health-check.use-case';
 import { ServerController } from 'src/interfaces/http/v1/server.controller';
-import { AccountModule } from './account.module';
 import { HealthCheckService } from 'src/infrastructure/health/health-check.service';
 import { ConnectionManager } from 'src/infrastructure/health/connection-manager';
 

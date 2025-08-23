@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from './auth.module';
 import { AccountModule } from './account.module';
 import { TasksModule } from './tasks.module';
-import { APP_GUARD, APP_INTERCEPTOR, RouterModule } from '@nestjs/core';
+import { APP_GUARD, RouterModule } from '@nestjs/core';
 import { DatabaseModule } from './database.module';
 import { NotifyModule } from './notify.module';
 import { ServerModule } from './server.module';

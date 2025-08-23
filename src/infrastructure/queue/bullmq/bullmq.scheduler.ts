@@ -25,7 +25,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		private readonly redisService: RedisServiceImpl,
 		private readonly logger: LokiServiceImpl
 	) {
-		this.workerService = new BullMQWorkerService(redisService);
+		this.workerService = new BullMQWorkerService(redisService, logger);
 		
 	}
 
@@ -38,8 +38,11 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		try {
 			const queue = await this.getHealthyQueue();
 			if (!queue) {
-				this.logger.register("Warn", "worker", {
-					message: `Cannot schedule task ${task.id} - Redis unhealthy`
+				this.logger.register("Warn", "BULLMQ_SCHEDULER", {
+					action: "schedule_failed",
+					taskId: task.id,
+					reason: "redis_unhealthy",
+					timestamp: new Date().toISOString()
 				});
 				return;
 			}
@@ -58,11 +61,23 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 				task.setJobId(job.id);
 				await this.taskRepository.update(task.user, task);
 				QueueJobCounter.inc();
-				this.logger.log(`✅ Task ${task.id} scheduled successfully`);
+				
+				this.logger.register("Info", "BULLMQ_SCHEDULER", {
+					action: "task_scheduled",
+					taskId: task.id,
+					jobId: job.id,
+					delay,
+					timestamp: new Date().toISOString()
+				});
 			}
 
 		} catch (error) {
-			this.logger.error(`💥 Failed to schedule task ${task.id}: ${error.message}`);
+			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+				action: "schedule_failed",
+				taskId: task.id,
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 			// Não throw - deixa aplicação continuar funcionando
 		}
 	}
@@ -74,18 +89,32 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		try {
 			const queue = await this.getHealthyQueue();
 			if (!queue) {
-				this.logger.warn(`Cannot remove job ${jobId} - Redis unhealthy`);
+				this.logger.register("Warn", "BULLMQ_SCHEDULER", {
+					action: "remove_schedule_failed",
+					jobId,
+					reason: "redis_unhealthy",
+					timestamp: new Date().toISOString()
+				});
 				return;
 			}
 
 			const job = await queue.getJob(jobId);
 			if (job) {
 				await job.remove();
-				this.logger.log(`🗑️ Job ${jobId} removed successfully`);
+				this.logger.register("Info", "BULLMQ_SCHEDULER", {
+					action: "job_removed",
+					jobId,
+					timestamp: new Date().toISOString()
+				});
 			}
 
 		} catch (error) {
-			this.logger.error(`💥 Failed to remove job ${jobId}: ${error.message}`);
+			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+				action: "remove_schedule_failed",
+				jobId,
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 		}
 	}
 
@@ -101,7 +130,12 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 			return job?.data ?? null;
 
 		} catch (error) {
-			this.logger.error(`💥 Failed to get job ${jobId}: ${error.message}`);
+			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+				action: "get_schedule_failed",
+				jobId,
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 			return null;
 		}
 	}
@@ -119,7 +153,12 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 			await this.schedule(task);
 
 		} catch (error) {
-			this.logger.error(`💥 Failed to update schedule for task ${task.id}: ${error.message}`);
+			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+				action: "update_schedule_failed",
+				taskId: task.id,
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 		}
 	}
 
@@ -155,15 +194,26 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 
 			// Event listeners para monitoramento
 			this.queue.on('error', (error) => {
-				this.logger.error(`Queue error: ${error.message}`);
+				this.logger.register("Error", "BULLMQ_SCHEDULER", {
+					action: "queue_error",
+					error: error.message,
+					timestamp: new Date().toISOString()
+				});
 				this.closeQueue(); // Remove queue com erro
 			});
 
-			this.logger.log(`🚀 Queue initialized successfully`);
+			this.logger.register("Info", "BULLMQ_SCHEDULER", {
+				action: "queue_initialized",
+				timestamp: new Date().toISOString()
+			});
 			return this.queue;
 
 		} catch (error) {
-			this.logger.error(`💥 Failed to create queue: ${error.message}`);
+			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+				action: "queue_creation_failed",
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 			return null;
 		}
 	}
@@ -175,9 +225,16 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		if (this.queue) {
 			try {
 				await this.queue.close();
-				this.logger.log(`🔌 Queue closed`);
+				this.logger.register("Info", "BULLMQ_SCHEDULER", {
+					action: "queue_closed",
+					timestamp: new Date().toISOString()
+				});
 			} catch (error) {
-				this.logger.error(`Error closing queue: ${error.message}`);
+				this.logger.register("Error", "BULLMQ_SCHEDULER", {
+					action: "queue_close_error",
+					error: error.message,
+					timestamp: new Date().toISOString()
+				});
 			} finally {
 				this.queue = null;
 			}
@@ -188,24 +245,36 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	 * Module initialization
 	 */
 	async onModuleInit() {
-		this.logger.log(`Initializing BullMQ Scheduler...`);
+		this.logger.register("Info", "BULLMQ_SCHEDULER", {
+			action: "initializing",
+			timestamp: new Date().toISOString()
+		});
 		
 		// Não inicializa queue aqui - será criada on-demand quando Redis estiver healthy
 		await this.workerService.onModuleInit();
 		
-		this.logger.log(`✅ BullMQ Scheduler initialized`);
+		this.logger.register("Info", "BULLMQ_SCHEDULER", {
+			action: "initialized",
+			timestamp: new Date().toISOString()
+		});
 	}
 
 	/**
 	 * Module destruction
 	 */
 	async onModuleDestroy() {
-		this.logger.log(`Shutting down BullMQ Scheduler...`);
+		this.logger.register("Info", "BULLMQ_SCHEDULER", {
+			action: "shutting_down",
+			timestamp: new Date().toISOString()
+		});
 		
 		await this.closeQueue();
 		await this.workerService.onModuleDestroy();
 		
-		this.logger.log(`✅ BullMQ Scheduler shutdown complete`);
+		this.logger.register("Info", "BULLMQ_SCHEDULER", {
+			action: "shutdown_complete",
+			timestamp: new Date().toISOString()
+		});
 	}
 
 }

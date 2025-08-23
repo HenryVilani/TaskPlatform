@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Job, Worker } from "bullmq";
 import { Task } from "src/domain/task/task.entity";
 import { RedisServiceImpl } from "./redis.impl";
+import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
 
 /**
  * BullMQ Worker Service melhorado com health check integration
@@ -10,18 +11,21 @@ import { RedisServiceImpl } from "./redis.impl";
 @Injectable()
 export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 
-	private readonly logger = new Logger(BullMQWorkerService.name);
 	private worker: Worker | null = null;
 
 	constructor(
-		private readonly redisService: RedisServiceImpl
+		private readonly redisService: RedisServiceImpl,
+		private readonly logger: LokiServiceImpl
 	) {}
 
 	/**
 	 * Lifecycle hook - inicializa worker apenas se Redis estiver healthy
 	 */
 	async onModuleInit() {
-		this.logger.log("🚀 Initializing BullMQ Worker");
+		this.logger.register("Info", "BULLMQ_WORKER", {
+			action: "initializing",
+			timestamp: new Date().toISOString()
+		});
 		await this.initializeWorker();
 	}
 
@@ -39,6 +43,11 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 		try {
 			const redis = await this.redisService.getHealthyConnection();
 			if (!redis) {
+				this.logger.register("Warn", "BULLMQ_WORKER", {
+					action: "initialization_skipped",
+					reason: "redis_unhealthy",
+					timestamp: new Date().toISOString()
+				});
 				return;
 			}
 
@@ -53,11 +62,44 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 			});
 
 			this.worker.on('error', (err) => {
+				this.logger.register("Error", "BULLMQ_WORKER", {
+					action: "worker_error",
+					error: err.message,
+					timestamp: new Date().toISOString()
+				});
 				this.closeWorker();
 			});
 
-		} catch (error) {
+			this.worker.on('ready', () => {
+				this.logger.register("Info", "BULLMQ_WORKER", {
+					action: "worker_ready",
+					timestamp: new Date().toISOString()
+				});
+			});
 
+			this.worker.on('failed', (job, err) => {
+				this.logger.register("Error", "BULLMQ_WORKER", {
+					action: "job_failed",
+					jobId: job?.id,
+					error: err.message,
+					timestamp: new Date().toISOString()
+				});
+			});
+
+			this.worker.on('completed', (job) => {
+				this.logger.register("Info", "BULLMQ_WORKER", {
+					action: "job_completed",
+					jobId: job.id,
+					timestamp: new Date().toISOString()
+				});
+			});
+
+		} catch (error) {
+			this.logger.register("Error", "BULLMQ_WORKER", {
+				action: "initialization_failed",
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 			this.worker = null;
 		}
 	}
@@ -86,10 +128,21 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 				)
 			]);
 
-			this.logger.log(`📢 Notification sent for task ${task.id} to user ${task.user.id}`);
+			this.logger.register("Info", "BULLMQ_WORKER", {
+				action: "notification_sent",
+				taskId: task.id,
+				userId: task.user.id,
+				channel,
+				timestamp: new Date().toISOString()
+			});
 
 		} catch (error) {
-			this.logger.error(`💥 Failed to process notification for task ${task.id}: ${error.message}`);
+			this.logger.register("Error", "BULLMQ_WORKER", {
+				action: "notification_failed",
+				taskId: task.id,
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 			
 			// Re-throw para BullMQ fazer retry
 			throw error;
@@ -103,9 +156,16 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 		if (this.worker) {
 			try {
 				await this.worker.close();
-				this.logger.log(`🔌 Worker closed successfully`);
+				this.logger.register("Info", "BULLMQ_WORKER", {
+					action: "worker_closed",
+					timestamp: new Date().toISOString()
+				});
 			} catch (error) {
-				this.logger.error(`Error closing worker: ${error.message}`);
+				this.logger.register("Error", "BULLMQ_WORKER", {
+					action: "worker_close_error",
+					error: error.message,
+					timestamp: new Date().toISOString()
+				});
 			} finally {
 				this.worker = null;
 			}
@@ -116,7 +176,10 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 	 * Força restart do worker (útil para reconexões)
 	 */
 	async restartWorker(): Promise<void> {
-		this.logger.log(`🔄 Restarting worker...`);
+		this.logger.register("Info", "BULLMQ_WORKER", {
+			action: "restarting",
+			timestamp: new Date().toISOString()
+		});
 		
 		await this.closeWorker();
 		

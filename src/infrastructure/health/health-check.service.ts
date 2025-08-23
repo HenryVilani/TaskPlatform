@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { IHealthService, HealthServiceStatus } from "src/application/services/health-service.repository";
 import { ServiceDisconnectedCounter, ServiceErrorCounter } from "../observability/prometheus/prometheus-metrics";
+import { LokiServiceImpl } from "../observability/loki/loki.service.impl";
 
 export type ServiceStatus = "Health" | "UnHealth";
 
@@ -27,7 +28,6 @@ export interface RetryConfig {
 @Injectable()
 export class HealthCheckService {
 	private services: Map<string, IService> = new Map();
-	private readonly logger = new Logger(HealthCheckService.name);
 	private reconnectionQueue: Set<string> = new Set();
 	private isBackgroundMonitorRunning = false;
 
@@ -37,6 +37,10 @@ export class HealthCheckService {
 		maxDelay: 30000,
 		backoffMultiplier: 1.5
 	};
+
+	constructor(
+		private readonly logger: LokiServiceImpl
+	) {}
 
 	register(name: string, service: IHealthService) {
 
@@ -95,6 +99,14 @@ export class HealthCheckService {
 			serviceInfo.lastError = error.message;
 			serviceInfo.nextCheckAt = this.calculateNextCheck(serviceInfo.consecutiveFailures);
 			
+			this.logger.register("Error", "HEALTH_CHECK", {
+				service: serviceName,
+				action: "check_with_timeout_failed",
+				error: error.message,
+				consecutiveFailures: serviceInfo.consecutiveFailures,
+				timestamp: new Date().toISOString()
+			});
+			
 			return "UnHealth";
 		}
 	}
@@ -117,7 +129,13 @@ export class HealthCheckService {
 		setTimeout(() => {
 			if (!this.reconnectionQueue.has(serviceName)) {
 				this.reconnectionQueue.add(serviceName);
-				this.logger.warn(`📋 Scheduled reconnection for service: ${serviceName} (failures: ${serviceInfo.consecutiveFailures})`);
+				this.logger.register("Warn", "HEALTH_CHECK", {
+					service: serviceName,
+					action: "scheduled_reconnection",
+					failures: serviceInfo.consecutiveFailures,
+					throttleDelay,
+					timestamp: new Date().toISOString()
+				});
 			}
 		}, throttleDelay);
 		
@@ -134,7 +152,10 @@ export class HealthCheckService {
 		if (this.isBackgroundMonitorRunning) return;
 		
 		this.isBackgroundMonitorRunning = true;
-		this.logger.log("Starting background health monitor");
+		this.logger.register("Info", "HEALTH_CHECK", {
+			action: "background_monitor_started",
+			timestamp: new Date().toISOString()
+		});
 
 		const monitorLoop = async () => {
 			while (this.isBackgroundMonitorRunning) {
@@ -162,7 +183,11 @@ export class HealthCheckService {
 					await new Promise(resolve => setTimeout(resolve, waitTime));
 					
 				} catch (error) {
-					this.logger.error("💥 Error in background monitor:", error);
+					this.logger.register("Error", "HEALTH_CHECK", {
+						action: "background_monitor_error",
+						error: error.message,
+						timestamp: new Date().toISOString()
+					});
 					await new Promise(resolve => setTimeout(resolve, 20000)); // Wait mais em caso de erro
 				}
 			}
@@ -180,7 +205,12 @@ export class HealthCheckService {
 
 		// Circuit breaker: se muitas falhas consecutivas, wait mais tempo
 		if (serviceInfo.consecutiveFailures > 5) {
-			this.logger.warn(`⚡ Circuit breaker: Service ${serviceName} has ${serviceInfo.consecutiveFailures} failures, backing off`);
+			this.logger.register("Warn", "HEALTH_CHECK", {
+				service: serviceName,
+				action: "circuit_breaker_activated",
+				failures: serviceInfo.consecutiveFailures,
+				timestamp: new Date().toISOString()
+			});
 			
 			// Backoff agressivo para serviços muito problemáticos
 			serviceInfo.nextCheckAt = new Date(Date.now() + (30000 * Math.min(serviceInfo.consecutiveFailures - 5, 5))); // Max 5 min
@@ -192,13 +222,22 @@ export class HealthCheckService {
 			return;
 		}
 
-		this.logger.log(`🔄 Attempting reconnection for service: ${serviceName}`);
+		this.logger.register("Info", "HEALTH_CHECK", {
+			service: serviceName,
+			action: "attempting_reconnection",
+			timestamp: new Date().toISOString()
+		});
 		
 		try {
 			const status = await this.checkServiceWithTimeout(serviceName, 4000);
 			
 			if (status === "Health") {
 				serviceInfo.consecutiveFailures = 0; // Reset counter
+				this.logger.register("Info", "HEALTH_CHECK", {
+					service: serviceName,
+					action: "reconnection_successful",
+					timestamp: new Date().toISOString()
+				});
 			} else {
 				ServiceDisconnectedCounter.inc({
 					service: serviceName
@@ -209,7 +248,13 @@ export class HealthCheckService {
 				}, 5000);
 			}
 		} catch (error) {
-			this.logger.error(`💥 Failed to reconnect ${serviceName}: ${error.message}`);
+			this.logger.register("Error", "HEALTH_CHECK", {
+				service: serviceName,
+				action: "reconnection_failed",
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
+
 			ServiceErrorCounter.inc({
 				service: serviceName
 			})
@@ -253,14 +298,20 @@ export class HealthCheckService {
 	 */
 	stopBackgroundMonitor() {
 		this.isBackgroundMonitorRunning = false;
-		this.logger.log("Stopping background health monitor");
+		this.logger.register("Info", "HEALTH_CHECK", {
+			action: "background_monitor_stopped",
+			timestamp: new Date().toISOString()
+		});
 	}
 
 	/**
 	 * Startup: espera todos os serviços ficarem healthy
 	 */
 	async waitServices(): Promise<void> {
-		this.logger.log("🚀 Starting service health verification...");
+		this.logger.register("Info", "HEALTH_CHECK", {
+			action: "service_health_verification_started",
+			timestamp: new Date().toISOString()
+		});
 
 		for (const [key, value] of this.services) {
 			let attempts = 0;
@@ -269,7 +320,12 @@ export class HealthCheckService {
 
 			while (attempts < this.defaultRetryConfig.maxAttempts && !connected) {
 				attempts++;
-				this.logger.log(`[${key}] Attempting connection (attempt ${attempts})...`);
+				this.logger.register("Info", "HEALTH_CHECK", {
+					service: key,
+					action: "connection_attempt",
+					attempt: attempts,
+					timestamp: new Date().toISOString()
+				});
 
 				try {
 					const ok = await value.service.isHealth();
@@ -277,12 +333,21 @@ export class HealthCheckService {
 						value.status = "Health";
 						value.lastCheck = new Date();
 						value.consecutiveFailures = 0;
-						this.logger.log(`[${key}] Connected successfully ✅`);
+						this.logger.register("Info", "HEALTH_CHECK", {
+							service: key,
+							action: "connection_successful",
+							timestamp: new Date().toISOString()
+						});
 						connected = true;
 						break;
 					}
 				} catch (err) {
-					this.logger.error(`[${key}] Connection failed: ${err}`);
+					this.logger.register("Error", "HEALTH_CHECK", {
+						service: key,
+						action: "connection_failed",
+						error: err.message,
+						timestamp: new Date().toISOString()
+					});
 				}
 
 				// Wait before next attempt
@@ -298,7 +363,12 @@ export class HealthCheckService {
 			if (!connected) {
 				value.status = "UnHealth";
 				value.consecutiveFailures = attempts;
-				this.logger.error(`[${key}] Failed to connect after ${attempts} attempts ❌`);
+				this.logger.register("Error", "HEALTH_CHECK", {
+					service: key,
+					action: "connection_failed_after_all_attempts",
+					attempts,
+					timestamp: new Date().toISOString()
+				});
 			}
 		}
 

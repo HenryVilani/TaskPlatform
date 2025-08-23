@@ -12,6 +12,7 @@ import { ApiBody, ApiExtraModels, ApiOperation, ApiResponse, ApiTags, getSchemaP
 import { TaskCreateDTO, TaskDTO, TaskIdentifierDTO, TaskFetchSegmentDTO, TaskUpdateDTO, TaskReturnSegmentDTO } from "./dtos/task.dto";
 import { JWTGuard } from "src/infrastructure/auth/jwt/jwt.guard";
 import { HealthCheckGuard } from "src/infrastructure/health/health.guard";
+import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
 
 @ApiExtraModels(StatusDTO, TaskDTO)
 @ApiTags("Task")
@@ -22,7 +23,8 @@ export class TaskController {
 		private readonly createTaskUseCase: CreateTaskUseCase,
 		private readonly updateTaskUseCase: UpdateTaskUseCase,
 		private readonly deleteTaskUseCase: DeleteTaskUseCase,
-		private readonly listTaskUseCase: ListTaskUseCase
+		private readonly listTaskUseCase: ListTaskUseCase,
+		private readonly logger: LokiServiceImpl
 	) {}
 
 	/**
@@ -48,11 +50,38 @@ export class TaskController {
 	@ApiBody({ type: TaskCreateDTO })
 	async createTask(@Req() request: Request, @Body() body: TaskCreateDTO): Promise<StatusDTO<TaskDTO>> {
 		try {
-			const task = await this.createTaskUseCase.execute(body, request.user as TokenDataDTO);
+			const user = request.user as TokenDataDTO;
+			
+			this.logger.register("Info", "TASK_CONTROLLER", {
+				action: "create_task_attempt",
+				userId: user.sub,
+				taskName: body.name,
+				timestamp: new Date().toISOString()
+			});
+
+			const task = await this.createTaskUseCase.execute(body, user);
+			
+			this.logger.register("Info", "TASK_CONTROLLER", {
+				action: "create_task_success",
+				userId: user.sub,
+				taskId: task.id,
+				taskName: task.name.value,
+				timestamp: new Date().toISOString()
+			});
+
 			return new StatusDTO<TaskDTO>("created", TaskDTO.fromTask(task));
 		} catch (error) {
+			const user = request.user as TokenDataDTO;
+			
+			this.logger.register("Error", "TASK_CONTROLLER", {
+				action: "create_task_failed",
+				userId: user?.sub,
+				taskName: body.name,
+				error: error instanceof BaseError ? error.id : error.message,
+				timestamp: new Date().toISOString()
+			});
+
 			if (error instanceof InvalidToken) return new StatusDTO(error.id);
-			Logger.log(error);
 			return new StatusDTO("unknown_error");
 		}
 	}
@@ -80,11 +109,39 @@ export class TaskController {
 	@ApiResponse({ status: 401, description: "Unauthorized", type: StatusDTO })
 	async updateTask(@Req() request: Request, @Body() body: TaskUpdateDTO): Promise<StatusDTO<TaskDTO>> {
 		try {
-			const task = await this.updateTaskUseCase.execute(body, request.user as TokenDataDTO);
+			const user = request.user as TokenDataDTO;
+			
+			this.logger.register("Info", "TASK_CONTROLLER", {
+				action: "update_task_attempt",
+				userId: user.sub,
+				taskId: body.id,
+				taskName: body.name,
+				timestamp: new Date().toISOString()
+			});
+
+			const task = await this.updateTaskUseCase.execute(body, user);
+			
+			this.logger.register("Info", "TASK_CONTROLLER", {
+				action: "update_task_success",
+				userId: user.sub,
+				taskId: task.id,
+				taskName: task.name.value,
+				timestamp: new Date().toISOString()
+			});
+
 			return new StatusDTO<TaskDTO>("updated", TaskDTO.fromTask(task));
 		} catch (error) {
+			const user = request.user as TokenDataDTO;
+			
+			this.logger.register("Error", "TASK_CONTROLLER", {
+				action: "update_task_failed",
+				userId: user?.sub,
+				taskId: body.id,
+				error: error instanceof BaseError ? error.id : error.message,
+				timestamp: new Date().toISOString()
+			});
+
 			if (error instanceof InvalidToken) return new StatusDTO(error.id);
-			Logger.log(error);
 			return new StatusDTO("unknown_error");
 		}
 	}
@@ -103,9 +160,36 @@ export class TaskController {
 	@ApiResponse({ status: 401, description: "Unauthorized", type: StatusDTO })
 	async deleteTask(@Req() request: Request, @Body() body: TaskIdentifierDTO): Promise<StatusDTO<void>> {
 		try {
-			await this.deleteTaskUseCase.execute(body.id, request.user as TokenDataDTO);
+			const user = request.user as TokenDataDTO;
+			
+			this.logger.register("Info", "TASK_CONTROLLER", {
+				action: "delete_task_attempt",
+				userId: user.sub,
+				taskId: body.id,
+				timestamp: new Date().toISOString()
+			});
+
+			await this.deleteTaskUseCase.execute(body.id, user);
+			
+			this.logger.register("Info", "TASK_CONTROLLER", {
+				action: "delete_task_success",
+				userId: user.sub,
+				taskId: body.id,
+				timestamp: new Date().toISOString()
+			});
+
 			return new StatusDTO("deleted");
 		} catch (error) {
+			const user = request.user as TokenDataDTO;
+			
+			this.logger.register("Error", "TASK_CONTROLLER", {
+				action: "delete_task_failed",
+				userId: user?.sub,
+				taskId: body.id,
+				error: error instanceof BaseError ? error.id : error.message,
+				timestamp: new Date().toISOString()
+			});
+
 			if (error instanceof BaseError) return new StatusDTO(error.id);
 			return new StatusDTO("unknown_error");
 		}
@@ -133,11 +217,39 @@ export class TaskController {
 	@ApiResponse({ status: 401, description: "Unauthorized", type: StatusDTO })
 	async listTasks(@Req() request: Request, @Body() body: TaskFetchSegmentDTO): Promise<StatusDTO<TaskReturnSegmentDTO>> {
 		try {
-			const segment = await this.listTaskUseCase.execute(request.user as TokenDataDTO, body.limit, body.cursor);
+			const user = request.user as TokenDataDTO;
+			
+			this.logger.register("Info", "TASK_CONTROLLER", {
+				action: "list_tasks_attempt",
+				userId: user.sub,
+				limit: body.limit,
+				hasCursor: !!body.cursor,
+				timestamp: new Date().toISOString()
+			});
+
+			const segment = await this.listTaskUseCase.execute(user, body.limit, body.cursor);
+			
+			this.logger.register("Info", "TASK_CONTROLLER", {
+				action: "list_tasks_success",
+				userId: user.sub,
+				tasksCount: segment.tasks.length,
+				hasMore: segment.hasMore,
+				timestamp: new Date().toISOString()
+			});
+
 			return new StatusDTO<TaskReturnSegmentDTO>("tasks", TaskReturnSegmentDTO.fromSegment(segment));
 		} catch (error) {
+			const user = request.user as TokenDataDTO;
+			
+			this.logger.register("Error", "TASK_CONTROLLER", {
+				action: "list_tasks_failed",
+				userId: user?.sub,
+				limit: body.limit,
+				error: error instanceof BaseError ? error.id : error.message,
+				timestamp: new Date().toISOString()
+			});
+
 			if (error instanceof BaseError) return new StatusDTO(error.id);
-			Logger.log(error);
 			return new StatusDTO("unknown_error");
 		}
 	}

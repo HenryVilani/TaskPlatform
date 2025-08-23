@@ -49,6 +49,6 @@ import { ServerModule } from './server.module';
 		LokiBaseServiceImpl,
 	],
 	controllers: [PrometheusController],
-	exports: ["ILoggerRepository"],
+	exports: ["ILoggerRepository", LokiBaseServiceImpl],
 })
 export class ObservabilityModule {}

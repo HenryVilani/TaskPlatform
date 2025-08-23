@@ -4,6 +4,7 @@ import { IHealthService, HealthServiceStatus } from "src/application/services/he
 import { HealthCheckService } from "src/infrastructure/health/health-check.service";
 import { ConnectionManager } from "src/infrastructure/health/connection-manager";
 import { ServiceDisconnectedCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
+import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
 
 @Injectable()
 export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleDestroy {
@@ -11,7 +12,8 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 
 	constructor(
 		private readonly healthCheck: HealthCheckService,
-		private readonly connectionManager: ConnectionManager
+		private readonly connectionManager: ConnectionManager,
+		private readonly logger: LokiServiceImpl
 	) {}
 
 	async onModuleInit() {
@@ -60,6 +62,11 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 			return isValid ? "Health" : "UnHealth";
 
 		} catch (error) {
+			this.logger.register("Error", "REDIS_SERVICE", {
+				action: "health_check_failed",
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 			return "UnHealth";
 		}
 	}
@@ -95,6 +102,11 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 
 			return await this.getService<Redis>();
 		} catch (error) {
+			this.logger.register("Error", "REDIS_SERVICE", {
+				action: "get_healthy_connection_failed",
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 			return null;
 		}
 	}
@@ -103,6 +115,13 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	 * Factory para criar nova conexão Redis
 	 */
 	private async createRedisConnection(): Promise<Redis> {
+		this.logger.register("Info", "REDIS_SERVICE", {
+			action: "creating_connection",
+			host: process.env.REDIS_HOST ?? "localhost",
+			port: Number(process.env.REDIS_PORT) || 6379,
+			timestamp: new Date().toISOString()
+		});
+
 		const redis = new Redis({
 			host: process.env.REDIS_HOST ?? "localhost",
 			port: Number(process.env.REDIS_PORT) || 6379,
@@ -124,19 +143,35 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 
 		// Event listeners - SEM scheduleReconnection para evitar loops
 		redis.on("error", (err) => {
-			
+			this.logger.register("Error", "REDIS_SERVICE", {
+				action: "connection_error",
+				error: err.message,
+				timestamp: new Date().toISOString()
+			});
 		});
 
 		redis.on("connect", () => {
+			this.logger.register("Info", "REDIS_SERVICE", {
+				action: "connected",
+				timestamp: new Date().toISOString()
+			});
 		});
 
 		redis.on("close", () => {
+			this.logger.register("Info", "REDIS_SERVICE", {
+				action: "connection_closed",
+				timestamp: new Date().toISOString()
+			});
 
 			this.connectionManager.disconnect(this.connectionName);
 
 		});
 
 		redis.on("end", () => {
+			this.logger.register("Info", "REDIS_SERVICE", {
+				action: "connection_ended",
+				timestamp: new Date().toISOString()
+			});
 		});
 
 		// Força conexão inicial com timeout
@@ -147,6 +182,11 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 			)
 		]);
 		
+		this.logger.register("Info", "REDIS_SERVICE", {
+			action: "connection_established",
+			timestamp: new Date().toISOString()
+		});
+
 		return redis;
 	}
 
@@ -154,6 +194,10 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	 * Método para forçar reset da conexão
 	 */
 	async resetConnection(): Promise<void> {
+		this.logger.register("Info", "REDIS_SERVICE", {
+			action: "resetting_connection",
+			timestamp: new Date().toISOString()
+		});
 		await this.connectionManager.disconnect(this.connectionName);
 	}
 }

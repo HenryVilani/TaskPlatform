@@ -32,6 +32,6 @@ import { ConnectionManager } from 'src/infrastructure/health/connection-manager'
 		HealthCheckService,
 		ConnectionManager
 	],
-	exports: [HealthCheckService, ConnectionManager]
+	exports: [HealthCheckService, ConnectionManager, HealthCheckUseCase]
 })
 export class ServerModule {}

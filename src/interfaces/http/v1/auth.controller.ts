@@ -6,13 +6,15 @@ import { StatusDTO } from "src/application/dtos/status.dto";
 import { BaseError } from "src/application/erros/base.errors";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { HealthCheckGuard } from "src/infrastructure/health/health.guard";
+import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
 
 @Controller()
 export class AuthController {
 
 	constructor(
 		private readonly createUserUseCase: RegisterUserUseCase,
-		private readonly loginUserUseCase: LoginUseCase
+		private readonly loginUserUseCase: LoginUseCase,
+		private readonly logger: LokiServiceImpl
 	) {}
 
 	/**
@@ -55,8 +57,21 @@ export class AuthController {
 	})
 	async registerUser(@Body() body: UserAuthDTO) {
 		try {
+			this.logger.register("Info", "AUTH_CONTROLLER", {
+				action: "register_attempt",
+				email: body.email,
+				timestamp: new Date().toISOString()
+			});
+
 			// Execute the registration use case
 			const user = await this.createUserUseCase.execute(body.email, body.password);
+
+			this.logger.register("Info", "AUTH_CONTROLLER", {
+				action: "register_success",
+				userId: user.id,
+				email: user.email,
+				timestamp: new Date().toISOString()
+			});
 
 			// Return success with user id and email
 			return new StatusDTO<{ id: string; email: string }>("registered", {
@@ -65,12 +80,18 @@ export class AuthController {
 			});
 
 		} catch (error) {
+			this.logger.register("Error", "AUTH_CONTROLLER", {
+				action: "register_failed",
+				email: body.email,
+				error: error instanceof BaseError ? error.id : error.message,
+				timestamp: new Date().toISOString()
+			});
+
 			// Handle known errors via BaseError
 			if (error instanceof BaseError) {
 				return new StatusDTO(error.id);
 			} else {
 				// Log unknown errors and return generic status
-				Logger.log(error)
 				return new StatusDTO("unknown_error");
 			}
 		}
@@ -116,19 +137,37 @@ export class AuthController {
 	})
 	async loginUser(@Body() body: UserAuthDTO) {
 		try {
+			this.logger.register("Info", "AUTH_CONTROLLER", {
+				action: "login_attempt",
+				email: body.email,
+				timestamp: new Date().toISOString()
+			});
+
 			// Execute login use case to validate credentials
 			const result = await this.loginUserUseCase.execute(body.email, body.password);
+
+			this.logger.register("Info", "AUTH_CONTROLLER", {
+				action: "login_success",
+				email: body.email,
+				timestamp: new Date().toISOString()
+			});
 
 			// Return success with JWT token
 			return new StatusDTO<{ token: string }>("logged_in", { token: result.token });
 
 		} catch (error) {
+			this.logger.register("Error", "AUTH_CONTROLLER", {
+				action: "login_failed",
+				email: body.email,
+				error: error instanceof BaseError ? error.id : error.message,
+				timestamp: new Date().toISOString()
+			});
+
 			// Handle known errors via BaseError
 			if (error instanceof BaseError) {
 				return new StatusDTO(error.id);
 			} else {
 				// Log unknown errors and return generic status
-				Logger.log(error)
 				return new StatusDTO("unknown_error");
 			}
 		}

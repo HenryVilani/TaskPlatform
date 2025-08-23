@@ -5,6 +5,7 @@ import { HealthCheckService } from "src/infrastructure/health/health-check.servi
 import { DataSource, DataSourceOptions } from "typeorm";
 import { PostgreSQLConfig } from "./postgre.datasource";
 import { ServiceErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
+import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
 
 /**
  * PostgreSQL health service implementation that manages database connections and health checks.
@@ -26,11 +27,13 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 	 * @param {DataSource} datasource - The TypeORM DataSource instance
 	 * @param {HealthCheckService} healthCheck - Health check service for monitoring
 	 * @param {ConnectionManager} connectionManager - Connection manager for handling database connections
+	 * @param {LokiServiceImpl} logger - Loki logging service
 	 */
 	constructor(
 		@Inject("Datasource") private readonly datasource: DataSource,
 		private readonly healthCheck: HealthCheckService,
-		private readonly connectionManager: ConnectionManager
+		private readonly connectionManager: ConnectionManager,
+		private readonly logger: LokiServiceImpl
 
 	) {}
 
@@ -96,6 +99,11 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 			return isValid ? "Health" : "UnHealth";
 
 		} catch (error) {
+			this.logger.register("Error", "DATABASE_HEALTH_CHECK", {
+				service: this.connectionName,
+				error: error.message,
+				timestamp: new Date().toISOString()
+			});
 
 			return "UnHealth";
 		}
@@ -113,10 +121,27 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 
 		if (!datasource.isInitialized) {
 			try {
+				this.logger.register("Info", "DATABASE_CONNECTION", {
+					service: this.connectionName,
+					action: "initializing",
+					timestamp: new Date().toISOString()
+				});
 
 				await datasource.initialize();
 
+				this.logger.register("Info", "DATABASE_CONNECTION", {
+					service: this.connectionName,
+					action: "initialized",
+					timestamp: new Date().toISOString()
+				});
+
 			}catch (error){
+				this.logger.register("Error", "DATABASE_CONNECTION", {
+					service: this.connectionName,
+					action: "initialization_failed",
+					error: error.message,
+					timestamp: new Date().toISOString()
+				});
 
 				this.healthCheck.scheduleReconnection(this.connectionName);
 

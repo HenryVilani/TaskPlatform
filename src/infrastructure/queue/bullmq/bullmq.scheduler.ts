@@ -7,6 +7,7 @@ import { BullMQWorkerService } from "./bullmq.worker";
 import { type ITaskRepository } from "src/application/repositories/task.repository";
 import { HttpErrorCounter, QueueJobCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 import { RedisServiceImpl } from "./redis.impl";
+import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
 
 
 /**
@@ -16,15 +17,16 @@ import { RedisServiceImpl } from "./redis.impl";
 @Injectable()
 export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, OnModuleDestroy {
 
-	private readonly logger = new Logger(BullMQTaskScheduler.name);
 	private queue: Queue<Job> | null = null;
 	private workerService: BullMQWorkerService;
 
 	constructor(
 		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository,
-		private readonly redisService: RedisServiceImpl
+		private readonly redisService: RedisServiceImpl,
+		private readonly logger: LokiServiceImpl
 	) {
 		this.workerService = new BullMQWorkerService(redisService);
+		
 	}
 
 	/**
@@ -36,7 +38,9 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		try {
 			const queue = await this.getHealthyQueue();
 			if (!queue) {
-				this.logger.warn(`Cannot schedule task ${task.id} - Redis unhealthy`);
+				this.logger.register("Warn", "worker", {
+					message: `Cannot schedule task ${task.id} - Redis unhealthy`
+				});
 				return;
 			}
 
@@ -44,7 +48,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 
 			const job = await queue.add("notify-task", task, {
 				delay: delay,
-				attempts: 3, // Reduzido de 5 para 3
+				attempts: 3,
 				removeOnComplete: 5,
 				removeOnFail: false,
 				backoff: { type: "exponential", delay: 2000 }

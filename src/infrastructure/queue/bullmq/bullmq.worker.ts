@@ -1,9 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { Job, Worker } from "bullmq";
-import { Redis } from "ioredis";
 import { Task } from "src/domain/task/task.entity";
 import { RedisServiceImpl } from "./redis.impl";
-import { ServiceDisconnectedCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 
 /**
  * BullMQ Worker Service melhorado com health check integration
@@ -41,7 +39,6 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 		try {
 			const redis = await this.redisService.getHealthyConnection();
 			if (!redis) {
-				this.logger.warn("❌ Cannot initialize worker - Redis unhealthy");
 				return;
 			}
 
@@ -55,23 +52,9 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 				maxStalledCount: 1,
 			});
 
-			this.worker.on('completed', (job) => {
-				this.logger.log(`✅ Job ${job.id} completed successfully`);
-			});
-
-			this.worker.on('failed', (job, err) => {
-				this.logger.error(`❌ Job ${job?.id} failed: ${err.message}`);
-			});
-
 			this.worker.on('error', (err) => {
 				this.closeWorker();
 			});
-
-			this.worker.on('stalled', (jobId) => {
-				this.logger.warn(`⏰ Job ${jobId} stalled`);
-			});
-
-			this.logger.log("✅ BullMQ Worker initialized successfully");
 
 		} catch (error) {
 

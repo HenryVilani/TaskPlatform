@@ -32,9 +32,11 @@ export class LoggingInterceptor implements NestInterceptor {
 					this.loggerService.register("Info", "REQUEST", {
 						method,
 						url,
-						responseTime
+						responseTime,
+						useAgent,
+						ip,
+						userId
 					})
-					console.log("REQUEST");
 
 				},
 				error: (error) => {
@@ -43,7 +45,10 @@ export class LoggingInterceptor implements NestInterceptor {
 					this.loggerService.register("Error", "REQUEST", {
 						method,
 						url,
-						responseTime
+						responseTime,
+						useAgent,
+						ip,
+						userId
 					})
 
 				}

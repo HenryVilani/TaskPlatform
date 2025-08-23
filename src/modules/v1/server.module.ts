@@ -5,6 +5,7 @@ import { HealthCheckUseCase } from 'src/application/use-cases/server/health-chec
 import { ServerController } from 'src/interfaces/http/v1/server.controller';
 import { AccountModule } from './account.module';
 import { HealthCheckService } from 'src/infrastructure/health/health-check.service';
+import { ConnectionManager } from 'src/infrastructure/health/connection-manager';
 
 /**
  * ServerModule
@@ -32,7 +33,8 @@ import { HealthCheckService } from 'src/infrastructure/health/health-check.servi
 	providers: [
 		HealthCheckUseCase,
 		HealthCheckService,
+		ConnectionManager
 	],
-	exports: [HealthCheckService]
+	exports: [HealthCheckService, ConnectionManager]
 })
 export class ServerModule {}

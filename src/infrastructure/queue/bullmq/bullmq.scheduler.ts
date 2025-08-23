@@ -10,126 +10,198 @@ import { RedisServiceImpl } from "./redis.impl";
 
 
 /**
- * BullMQ-based Task Scheduler for scheduling task notifications.
+ * BullMQ-based Task Scheduler melhorado com health check integration
  * Implements ISchedulerRepository to integrate with domain logic.
  */
 @Injectable()
 export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, OnModuleDestroy {
 
-	private readonly logger = new Logger(BullMQTaskScheduler.name); // Logger for internal logging
-	private queue: Queue<Job> | null = null; // BullMQ queue instance
-	private workerService: BullMQWorkerService; // Worker service for processing jobs
+	private readonly logger = new Logger(BullMQTaskScheduler.name);
+	private queue: Queue<Job> | null = null;
+	private workerService: BullMQWorkerService;
 
 	constructor(
 		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository,
 		private readonly redisService: RedisServiceImpl
 	) {
-
-		// Initialize the worker service
 		this.workerService = new BullMQWorkerService(redisService);
-		
 	}
 
 	/**
-	 * Schedule a task notification using BullMQ.
-	 * @param task Task entity to schedule
+	 * Schedule a task notification usando BullMQ apenas se Redis estiver healthy
 	 */
 	async schedule(task: Task): Promise<void> {
-		// If the task has no notify date, do nothing
 		if (!task.notifyAt) return;
 
-		// Calculate the delay in milliseconds from now until the notify time
-		const delay = task.notifyAt.diffNow().as('milliseconds');
-
 		try {
+			const queue = await this.getHealthyQueue();
+			if (!queue) {
+				this.logger.warn(`Cannot schedule task ${task.id} - Redis unhealthy`);
+				return;
+			}
 
-			if (!this.queue) return;
-			
-			// Add a job to the BullMQ queue
-			const job = await this.queue.add("notify-task", task, {
-				delay: delay,                  // Delay execution until notifyAt
-				attempts: 5,                   // Retry up to 5 times on failure
-				removeOnComplete: 5,            // Keep only last 5 completed jobs
-				removeOnFail: false,            // Keep failed jobs for debugging
-				backoff: { type: "exponential", delay: 1000 } // Exponential backoff for retries
+			const delay = task.notifyAt.diffNow().as('milliseconds');
+
+			const job = await queue.add("notify-task", task, {
+				delay: delay,
+				attempts: 3, // Reduzido de 5 para 3
+				removeOnComplete: 5,
+				removeOnFail: false,
+				backoff: { type: "exponential", delay: 2000 }
 			});
 
 			if (job.id) {
-				// Store job ID in task and update repository
 				task.setJobId(job.id);
-				this.taskRepository.update(task.user, task);
-
-				// Increment Prometheus counter for scheduled queue jobs
+				await this.taskRepository.update(task.user, task);
 				QueueJobCounter.inc();
+				this.logger.log(`✅ Task ${task.id} scheduled successfully`);
 			}
+
 		} catch (error) {
-			this.logger.error(`Failed to schedule task ${task.id}:`, error);
-			throw error;
+			this.logger.error(`💥 Failed to schedule task ${task.id}: ${error.message}`);
+			// Não throw - deixa aplicação continuar funcionando
 		}
 	}
 
 	/**
-	 * Remove a scheduled job from the queue.
-	 * @param jobId Job identifier
+	 * Remove scheduled job apenas se Redis estiver healthy
 	 */
 	async removeSchedule(jobId: string): Promise<void> {
-		
-		if (!this.queue) return;
+		try {
+			const queue = await this.getHealthyQueue();
+			if (!queue) {
+				this.logger.warn(`Cannot remove job ${jobId} - Redis unhealthy`);
+				return;
+			}
 
-		const job = await this.queue.getJob(jobId);
-		job?.remove();
+			const job = await queue.getJob(jobId);
+			if (job) {
+				await job.remove();
+				this.logger.log(`🗑️ Job ${jobId} removed successfully`);
+			}
+
+		} catch (error) {
+			this.logger.error(`💥 Failed to remove job ${jobId}: ${error.message}`);
+		}
 	}
 
 	/**
-	 * Retrieve a scheduled task from the queue.
-	 * @param jobId Job identifier
-	 * @returns Task data if found, otherwise null
+	 * Get scheduled task apenas se Redis estiver healthy
 	 */
 	async getSchedule(jobId: string): Promise<Task | null> {
-		
-		if (!this.queue) return null;
+		try {
+			const queue = await this.getHealthyQueue();
+			if (!queue) return null;
 
-		const job = await this.queue.getJob(jobId);
-		return job?.data ?? null;
+			const job = await queue.getJob(jobId);
+			return job?.data ?? null;
+
+		} catch (error) {
+			this.logger.error(`💥 Failed to get job ${jobId}: ${error.message}`);
+			return null;
+		}
 	}
 
 	/**
-	 * Update a scheduled task by removing old job and scheduling a new one.
-	 * @param task Task entity to reschedule
+	 * Update scheduled task apenas se Redis estiver healthy
 	 */
 	async updateSchedule(task: Task): Promise<void> {
 		if (!task.jobId) return;
-		if (!this.queue) return;
 
-		await this.queue.remove(task.jobId); // Remove old job
-		this.schedule(task);                 // Schedule updated job
+		try {
+			// Remove old job
+			await this.removeSchedule(task.jobId);
+			// Schedule new job
+			await this.schedule(task);
+
+		} catch (error) {
+			this.logger.error(`💥 Failed to update schedule for task ${task.id}: ${error.message}`);
+		}
 	}
 
 	/**
-	 * Lifecycle hook called when module initializes.
-	 * Initializes the worker service.
+	 * Obtém queue apenas se Redis estiver healthy
 	 */
-	async onModuleInit() {
-
-		const redis = await this.redisService.getService<Redis>();
-		if (!redis) return;
-
-		if (await this.redisService.isHealth() == "Health") {
-
-			this.queue = new Queue("tasks", { connection: redis });
-
+	private async getHealthyQueue(): Promise<Queue<Job> | null> {
+		// Se já existe queue, verifica se Redis ainda está healthy
+		if (this.queue) {
+			const isRedisHealthy = await this.redisService.isHealth();
+			if (isRedisHealthy === "Health") {
+				return this.queue;
+			} else {
+				// Redis ficou unhealthy, remove queue
+				await this.closeQueue();
+			}
 		}
 
-		await this.workerService.onModuleInit();
+		// Tenta criar nova queue se Redis estiver healthy
+		const redis = await this.redisService.getHealthyConnection();
+		if (!redis) {
+			return null;
+		}
 
+		try {
+			this.queue = new Queue("tasks", { 
+				connection: redis,
+				defaultJobOptions: {
+					removeOnComplete: 10,
+					removeOnFail: 5,
+				}
+			});
+
+			// Event listeners para monitoramento
+			this.queue.on('error', (error) => {
+				this.logger.error(`Queue error: ${error.message}`);
+				this.closeQueue(); // Remove queue com erro
+			});
+
+			this.logger.log(`🚀 Queue initialized successfully`);
+			return this.queue;
+
+		} catch (error) {
+			this.logger.error(`💥 Failed to create queue: ${error.message}`);
+			return null;
+		}
 	}
 
 	/**
-	 * Lifecycle hook called when module is destroyed.
-	 * Cleans up the worker service.
+	 * Fecha queue atual
+	 */
+	private async closeQueue(): Promise<void> {
+		if (this.queue) {
+			try {
+				await this.queue.close();
+				this.logger.log(`🔌 Queue closed`);
+			} catch (error) {
+				this.logger.error(`Error closing queue: ${error.message}`);
+			} finally {
+				this.queue = null;
+			}
+		}
+	}
+
+	/**
+	 * Module initialization
+	 */
+	async onModuleInit() {
+		this.logger.log(`Initializing BullMQ Scheduler...`);
+		
+		// Não inicializa queue aqui - será criada on-demand quando Redis estiver healthy
+		await this.workerService.onModuleInit();
+		
+		this.logger.log(`✅ BullMQ Scheduler initialized`);
+	}
+
+	/**
+	 * Module destruction
 	 */
 	async onModuleDestroy() {
+		this.logger.log(`Shutting down BullMQ Scheduler...`);
+		
+		await this.closeQueue();
 		await this.workerService.onModuleDestroy();
+		
+		this.logger.log(`✅ BullMQ Scheduler shutdown complete`);
 	}
 
 }

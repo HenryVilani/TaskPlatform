@@ -61,7 +61,6 @@ async function bootstrap() {
 	setupDocumentation(app);
 	await app.init();
 	
-	console.log('🚀 Iniciando verificação de saúde dos serviços...');
 	const healthCheckService = await app.get(HealthCheckService)
 	
 	await healthCheckService.waitServices()
@@ -86,8 +85,7 @@ async function bootstrap() {
 	// Start the server
 	const port = process.env.PORT ?? 8080;
 	await app.listen(port);
-	console.log(`✅ Aplicação iniciada com sucesso na porta ${port}`);
-	console.log(`📚 Documentação da API disponível em: http://localhost:${port}/api-docs/v1`);
+	console.log(`Documentation: http://localhost:${port}/api-docs/v1`);
 }
 
 // Bootstrap the application

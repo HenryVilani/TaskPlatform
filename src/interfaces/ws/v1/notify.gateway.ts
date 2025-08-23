@@ -56,7 +56,6 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	
 		// Handle incoming Redis messages
 		redis.on('pmessage', (pattern: string, channel: string, message: string) => {
-			console.log(`[Redis] Received message on pattern: ${pattern}, channel: ${channel}`);
 			this.subscriberCallback(pattern, channel, message);
 		});
 
@@ -78,7 +77,6 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 		const token: string | null = socket.handshake.auth.token;
 
 		if (!token) {
-			console.log("Connection rejected: No token provided");
 			socket.emit("error", new StatusDTO("unauthorized"));
 			return socket.disconnect(true);
 		}
@@ -86,9 +84,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 		try {
 			const user = await this.authRepository.validateToken(token);
 			await socket.join(`user:${user.sub}`);
-			console.log(`+ User ${user.sub} connected to room: user:${user.sub}`);
 		} catch (error) {
-			console.log("Connection rejected: Invalid token", error);
 			return socket.disconnect(true);
 		}
 	}
@@ -110,7 +106,6 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 		try {
 			const channelParts = channel.split(":");
 			if (channelParts.length !== 3 || channelParts[0] !== "user" || channelParts[2] !== "notifications") {
-				console.log("Invalid channel format:", channel);
 				return;
 			}
 
@@ -120,13 +115,11 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
 			const user = await this.userRepository.findById(userId);
 			if (!user) {
-				console.log("User not found:", userId);
 				return;
 			}
 
 			const dbTask = await this.taskRepository.findById(user, wsTask.id);
 			if (!dbTask) {
-				console.log("Task not found:", wsTask.id);
 				return;
 			}
 

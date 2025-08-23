@@ -19,3 +19,9 @@ export const TaskSentCounter = new client.Counter({
 	name: "task_sent_total",
 	help: "Total tasks notified"
 })
+
+export const ServiceErrorCounter = new client.Counter({
+	name: "service_error_total",
+	help: "Total services error"
+})
+

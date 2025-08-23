@@ -27,7 +27,6 @@ import { join } from 'path';
  * - None
  */
 
-console.log(join(__dirname, '..', '..', '..', 'public'))
 
 @Module({
 	imports: [

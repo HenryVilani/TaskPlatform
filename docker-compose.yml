@@ -18,8 +18,8 @@ services:
     image: postgres
     container_name: database
     restart: always
-    ports:
-      - 5432:5432
+    # ports: # remove this for access database in localhost
+    #   - 5432:5432
     env_file:
       - .env
 
@@ -29,8 +29,6 @@ services:
   redis:
     container_name: redis
     image: redis:7
-    ports:
-      - 6379:6379
     networks:
       - backend-network
     volumes:
@@ -89,8 +87,8 @@ services:
     # image: grafana/loki:2.3.0
     image: grafana/loki:latest
     container_name: loki
-    ports:
-      - 3100:3100
+    # ports: # remove this for access loki in localhost
+    #   - 3100:3100
     networks:
       - backend-network
     command: -config.file=/etc/loki/loki-config.yaml

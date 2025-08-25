@@ -1,18 +1,29 @@
-import { Controller, Get, Logger } from "@nestjs/common";
+import { Controller, Get, Logger, OnModuleInit } from "@nestjs/common";
 import { StatusDTO } from "src/application/dtos/status.dto";
 import { BaseError } from "src/application/erros/base.errors";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { HealthCheckUseCase } from "src/application/use-cases/server/health-check.use-case";
 import { ServerHealthDTO } from "src/application/dtos/server.dto";
 import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
+import { ILoggerRepository } from "src/application/services/logger.repository";
+import { ConnectionManager } from "src/infrastructure/health/connection-manager";
+import { NestLogServiceImpl } from "src/infrastructure/observability/nestLog/nestlog.service.impl";
 
 @Controller()
-export class ServerController {
+export class ServerController implements OnModuleInit {
+
+	private logger: ILoggerRepository | null = null;
 
 	constructor(
 		private healthCheckUseCase: HealthCheckUseCase,
-		private readonly logger: LokiServiceImpl
+		private connectionManager: ConnectionManager
 	) {}
+
+	async onModuleInit() {
+		
+		this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
+
+	}
 
 	/**
 	 * GET /health
@@ -42,7 +53,7 @@ export class ServerController {
 	})
 	async serverHealthStatus() {
 		try {
-			this.logger.register("Info", "SERVER_CONTROLLER", {
+			this.logger?.register("Info", "SERVER_CONTROLLER", {
 				action: "health_check_attempt",
 				timestamp: new Date().toISOString()
 			});
@@ -50,7 +61,7 @@ export class ServerController {
 			// Execute health check use case to get server health information
 			const serverHealth = await this.healthCheckUseCase.execute();
 
-			this.logger.register("Info", "SERVER_CONTROLLER", {
+			this.logger?.register("Info", "SERVER_CONTROLLER", {
 				action: "health_check_success",
 				servicesHealthy: serverHealth.services.filter(s => s.status === "Health").length,
 				servicesTotal: serverHealth.services.length,
@@ -61,7 +72,7 @@ export class ServerController {
 			return new StatusDTO<ServerHealthDTO>("health", serverHealth);
 
 		} catch (error) {
-			this.logger.register("Error", "SERVER_CONTROLLER", {
+			this.logger?.register("Error", "SERVER_CONTROLLER", {
 				action: "health_check_failed",
 				error: error instanceof BaseError ? error.id : error.message,
 				timestamp: new Date().toISOString()

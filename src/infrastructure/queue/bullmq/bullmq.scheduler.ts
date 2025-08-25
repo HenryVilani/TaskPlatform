@@ -8,6 +8,9 @@ import { type ITaskRepository } from "src/application/repositories/task.reposito
 import { HttpErrorCounter, QueueJobCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 import { RedisServiceImpl } from "./redis.impl";
 import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
+import { ILoggerRepository } from "src/application/services/logger.repository";
+import { NestLogServiceImpl } from "src/infrastructure/observability/nestLog/nestlog.service.impl";
+import { ConnectionManager } from "src/infrastructure/health/connection-manager";
 
 
 /**
@@ -20,12 +23,14 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	private queue: Queue<Job> | null = null;
 	private workerService: BullMQWorkerService;
 
+	private logger: ILoggerRepository | null = null;
+
 	constructor(
 		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository,
 		private readonly redisService: RedisServiceImpl,
-		private readonly logger: LokiServiceImpl
+		private readonly connectionManager: ConnectionManager
 	) {
-		this.workerService = new BullMQWorkerService(redisService, logger);
+		this.workerService = new BullMQWorkerService(redisService, connectionManager);
 		
 	}
 
@@ -38,7 +43,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		try {
 			const queue = await this.getHealthyQueue();
 			if (!queue) {
-				this.logger.register("Warn", "BULLMQ_SCHEDULER", {
+				this.logger?.register("Warn", "BULLMQ_SCHEDULER", {
 					action: "schedule_failed",
 					taskId: task.id,
 					reason: "redis_unhealthy",
@@ -62,7 +67,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 				await this.taskRepository.update(task.user, task);
 				QueueJobCounter.inc();
 				
-				this.logger.register("Info", "BULLMQ_SCHEDULER", {
+				this.logger?.register("Info", "BULLMQ_SCHEDULER", {
 					action: "task_scheduled",
 					taskId: task.id,
 					jobId: job.id,
@@ -72,7 +77,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 			}
 
 		} catch (error) {
-			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+			this.logger?.register("Error", "BULLMQ_SCHEDULER", {
 				action: "schedule_failed",
 				taskId: task.id,
 				error: error.message,
@@ -89,7 +94,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		try {
 			const queue = await this.getHealthyQueue();
 			if (!queue) {
-				this.logger.register("Warn", "BULLMQ_SCHEDULER", {
+				this.logger?.register("Warn", "BULLMQ_SCHEDULER", {
 					action: "remove_schedule_failed",
 					jobId,
 					reason: "redis_unhealthy",
@@ -101,7 +106,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 			const job = await queue.getJob(jobId);
 			if (job) {
 				await job.remove();
-				this.logger.register("Info", "BULLMQ_SCHEDULER", {
+				this.logger?.register("Info", "BULLMQ_SCHEDULER", {
 					action: "job_removed",
 					jobId,
 					timestamp: new Date().toISOString()
@@ -109,7 +114,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 			}
 
 		} catch (error) {
-			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+			this.logger?.register("Error", "BULLMQ_SCHEDULER", {
 				action: "remove_schedule_failed",
 				jobId,
 				error: error.message,
@@ -130,7 +135,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 			return job?.data ?? null;
 
 		} catch (error) {
-			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+			this.logger?.register("Error", "BULLMQ_SCHEDULER", {
 				action: "get_schedule_failed",
 				jobId,
 				error: error.message,
@@ -153,7 +158,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 			await this.schedule(task);
 
 		} catch (error) {
-			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+			this.logger?.register("Error", "BULLMQ_SCHEDULER", {
 				action: "update_schedule_failed",
 				taskId: task.id,
 				error: error.message,
@@ -194,7 +199,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 
 			// Event listeners para monitoramento
 			this.queue.on('error', (error) => {
-				this.logger.register("Error", "BULLMQ_SCHEDULER", {
+				this.logger?.register("Error", "BULLMQ_SCHEDULER", {
 					action: "queue_error",
 					error: error.message,
 					timestamp: new Date().toISOString()
@@ -202,14 +207,14 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 				this.closeQueue(); // Remove queue com erro
 			});
 
-			this.logger.register("Info", "BULLMQ_SCHEDULER", {
+			this.logger?.register("Info", "BULLMQ_SCHEDULER", {
 				action: "queue_initialized",
 				timestamp: new Date().toISOString()
 			});
 			return this.queue;
 
 		} catch (error) {
-			this.logger.register("Error", "BULLMQ_SCHEDULER", {
+			this.logger?.register("Error", "BULLMQ_SCHEDULER", {
 				action: "queue_creation_failed",
 				error: error.message,
 				timestamp: new Date().toISOString()
@@ -225,12 +230,12 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		if (this.queue) {
 			try {
 				await this.queue.close();
-				this.logger.register("Info", "BULLMQ_SCHEDULER", {
+				this.logger?.register("Info", "BULLMQ_SCHEDULER", {
 					action: "queue_closed",
 					timestamp: new Date().toISOString()
 				});
 			} catch (error) {
-				this.logger.register("Error", "BULLMQ_SCHEDULER", {
+				this.logger?.register("Error", "BULLMQ_SCHEDULER", {
 					action: "queue_close_error",
 					error: error.message,
 					timestamp: new Date().toISOString()
@@ -245,7 +250,10 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	 * Module initialization
 	 */
 	async onModuleInit() {
-		this.logger.register("Info", "BULLMQ_SCHEDULER", {
+
+		this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
+
+		this.logger?.register("Info", "BULLMQ_SCHEDULER", {
 			action: "initializing",
 			timestamp: new Date().toISOString()
 		});
@@ -253,7 +261,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		// Não inicializa queue aqui - será criada on-demand quando Redis estiver healthy
 		await this.workerService.onModuleInit();
 		
-		this.logger.register("Info", "BULLMQ_SCHEDULER", {
+		this.logger?.register("Info", "BULLMQ_SCHEDULER", {
 			action: "initialized",
 			timestamp: new Date().toISOString()
 		});
@@ -263,7 +271,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	 * Module destruction
 	 */
 	async onModuleDestroy() {
-		this.logger.register("Info", "BULLMQ_SCHEDULER", {
+		this.logger?.register("Info", "BULLMQ_SCHEDULER", {
 			action: "shutting_down",
 			timestamp: new Date().toISOString()
 		});
@@ -271,7 +279,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 		await this.closeQueue();
 		await this.workerService.onModuleDestroy();
 		
-		this.logger.register("Info", "BULLMQ_SCHEDULER", {
+		this.logger?.register("Info", "BULLMQ_SCHEDULER", {
 			action: "shutdown_complete",
 			timestamp: new Date().toISOString()
 		});

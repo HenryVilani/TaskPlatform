@@ -1,7 +1,12 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { forwardRef, Inject, Injectable } from "@nestjs/common";
 import { IHealthService, HealthServiceStatus } from "src/application/services/health-service.repository";
 import { ServiceDisconnectedCounter, ServiceErrorCounter } from "../observability/prometheus/prometheus-metrics";
-import { LokiServiceImpl } from "../observability/loki/loki.service.impl";
+import { ILoggerRepository } from "src/application/services/logger.repository";
+import { ConnectionManager } from "./connection-manager";
+import { NestLogServiceImpl } from "../observability/nestLog/nestlog.service.impl";
+//import { LokiServiceImpl } from "../observability/loki/loki.service.impl";
+//import { ConnectionManager } from "./connection-manager";
+//import LokiTransport from "winston-loki";
 
 export type ServiceStatus = "Health" | "UnHealth";
 
@@ -31,6 +36,8 @@ export class HealthCheckService {
 	private reconnectionQueue: Set<string> = new Set();
 	private isBackgroundMonitorRunning = false;
 
+	private logger: ILoggerRepository | null = null;
+
 	private readonly defaultRetryConfig: RetryConfig = {
 		maxAttempts: 30,
 		initialDelay: 2000,
@@ -39,7 +46,7 @@ export class HealthCheckService {
 	};
 
 	constructor(
-		private readonly logger: LokiServiceImpl
+		private readonly connectionManager: ConnectionManager
 	) {}
 
 	register(name: string, service: IHealthService) {
@@ -99,14 +106,17 @@ export class HealthCheckService {
 			serviceInfo.lastError = error.message;
 			serviceInfo.nextCheckAt = this.calculateNextCheck(serviceInfo.consecutiveFailures);
 			
-			this.logger.register("Error", "HEALTH_CHECK", {
-				service: serviceName,
-				action: "check_with_timeout_failed",
-				error: error.message,
-				consecutiveFailures: serviceInfo.consecutiveFailures,
-				timestamp: new Date().toISOString()
-			});
+			// this.logger.register("Error", "HEALTH_CHECK", {
+			// 	service: serviceName,
+			// 	action: "check_with_timeout_failed",
+			// 	error: error.message,
+			// 	consecutiveFailures: serviceInfo.consecutiveFailures,
+			// 	timestamp: new Date().toISOString()
+			// });
 			
+
+			this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
+
 			return "UnHealth";
 		}
 	}
@@ -129,7 +139,7 @@ export class HealthCheckService {
 		setTimeout(() => {
 			if (!this.reconnectionQueue.has(serviceName)) {
 				this.reconnectionQueue.add(serviceName);
-				this.logger.register("Warn", "HEALTH_CHECK", {
+				this.logger?.register("Warn", "HEALTH_CHECK", {
 					service: serviceName,
 					action: "scheduled_reconnection",
 					failures: serviceInfo.consecutiveFailures,
@@ -152,7 +162,7 @@ export class HealthCheckService {
 		if (this.isBackgroundMonitorRunning) return;
 		
 		this.isBackgroundMonitorRunning = true;
-		this.logger.register("Info", "HEALTH_CHECK", {
+		this.logger?.register("Info", "HEALTH_CHECK", {
 			action: "background_monitor_started",
 			timestamp: new Date().toISOString()
 		});
@@ -183,7 +193,7 @@ export class HealthCheckService {
 					await new Promise(resolve => setTimeout(resolve, waitTime));
 					
 				} catch (error) {
-					this.logger.register("Error", "HEALTH_CHECK", {
+					this.logger?.register("Error", "HEALTH_CHECK", {
 						action: "background_monitor_error",
 						error: error.message,
 						timestamp: new Date().toISOString()
@@ -205,7 +215,7 @@ export class HealthCheckService {
 
 		// Circuit breaker: se muitas falhas consecutivas, wait mais tempo
 		if (serviceInfo.consecutiveFailures > 5) {
-			this.logger.register("Warn", "HEALTH_CHECK", {
+			this.logger?.register("Warn", "HEALTH_CHECK", {
 				service: serviceName,
 				action: "circuit_breaker_activated",
 				failures: serviceInfo.consecutiveFailures,
@@ -222,7 +232,7 @@ export class HealthCheckService {
 			return;
 		}
 
-		this.logger.register("Info", "HEALTH_CHECK", {
+		this.logger?.register("Info", "HEALTH_CHECK", {
 			service: serviceName,
 			action: "attempting_reconnection",
 			timestamp: new Date().toISOString()
@@ -233,7 +243,7 @@ export class HealthCheckService {
 			
 			if (status === "Health") {
 				serviceInfo.consecutiveFailures = 0; // Reset counter
-				this.logger.register("Info", "HEALTH_CHECK", {
+				this.logger?.register("Info", "HEALTH_CHECK", {
 					service: serviceName,
 					action: "reconnection_successful",
 					timestamp: new Date().toISOString()
@@ -248,7 +258,7 @@ export class HealthCheckService {
 				}, 5000);
 			}
 		} catch (error) {
-			this.logger.register("Error", "HEALTH_CHECK", {
+			this.logger?.register("Error", "HEALTH_CHECK", {
 				service: serviceName,
 				action: "reconnection_failed",
 				error: error.message,
@@ -298,7 +308,7 @@ export class HealthCheckService {
 	 */
 	stopBackgroundMonitor() {
 		this.isBackgroundMonitorRunning = false;
-		this.logger.register("Info", "HEALTH_CHECK", {
+		this.logger?.register("Info", "HEALTH_CHECK", {
 			action: "background_monitor_stopped",
 			timestamp: new Date().toISOString()
 		});
@@ -308,7 +318,7 @@ export class HealthCheckService {
 	 * Startup: espera todos os serviços ficarem healthy
 	 */
 	async waitServices(): Promise<void> {
-		this.logger.register("Info", "HEALTH_CHECK", {
+		this.logger?.register("Info", "HEALTH_CHECK", {
 			action: "service_health_verification_started",
 			timestamp: new Date().toISOString()
 		});
@@ -320,7 +330,7 @@ export class HealthCheckService {
 
 			while (attempts < this.defaultRetryConfig.maxAttempts && !connected) {
 				attempts++;
-				this.logger.register("Info", "HEALTH_CHECK", {
+				this.logger?.register("Info", "HEALTH_CHECK", {
 					service: key,
 					action: "connection_attempt",
 					attempt: attempts,
@@ -333,7 +343,7 @@ export class HealthCheckService {
 						value.status = "Health";
 						value.lastCheck = new Date();
 						value.consecutiveFailures = 0;
-						this.logger.register("Info", "HEALTH_CHECK", {
+						this.logger?.register("Info", "HEALTH_CHECK", {
 							service: key,
 							action: "connection_successful",
 							timestamp: new Date().toISOString()
@@ -342,7 +352,7 @@ export class HealthCheckService {
 						break;
 					}
 				} catch (err) {
-					this.logger.register("Error", "HEALTH_CHECK", {
+					this.logger?.register("Error", "HEALTH_CHECK", {
 						service: key,
 						action: "connection_failed",
 						error: err.message,
@@ -363,7 +373,7 @@ export class HealthCheckService {
 			if (!connected) {
 				value.status = "UnHealth";
 				value.consecutiveFailures = attempts;
-				this.logger.register("Error", "HEALTH_CHECK", {
+				this.logger?.register("Error", "HEALTH_CHECK", {
 					service: key,
 					action: "connection_failed_after_all_attempts",
 					attempts,

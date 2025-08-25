@@ -5,50 +5,68 @@ import { LokiBaseServiceImpl } from 'src/infrastructure/observability/loki/loki.
 import { LokiServiceImpl } from 'src/infrastructure/observability/loki/loki.service.impl';
 import { PrometheusExceptionFilter, PrometheusService } from 'src/infrastructure/observability/prometheus/prometheus.service';
 import { PrometheusController } from 'src/interfaces/http/v1/observability/prometheus.controller';
-import { ServerModule } from './server.module';
+import { CoreModule } from './core.module';
 
 /**
- * ObservabilityModule
+ * ObservabilityModule with Lazy Loading
  * 
- * This module provides observability features for the application,
- * including logging, metrics collection, and exception tracking.
+ * No longer needs to import CoreModule directly.
+ * LokiBaseServiceImpl will lazy load required services to avoid circular dependencies.
  * 
- * Features:
- * - Loki logging implementation (LokiServiceImpl)
- * - Prometheus metrics service and exception filter
- * - Global logging interceptor for request logging
- * 
- * Providers:
- * - ILoggerRepository (LokiServiceImpl): Repository for logging to Loki
- * - PrometheusExceptionFilter: Captures exceptions and reports metrics to Prometheus
- * - LoggingInterceptor: Intercepts requests for logging purposes
- * - PrometheusService: Provides Prometheus metrics functionality
- * 
- * Controllers:
- * - PrometheusController: Exposes HTTP endpoints for Prometheus metrics
- * 
- * Exports:
- * - ILoggerRepository: Can be used by other modules to log events
+ * @export
+ * @class ObservabilityModule
  */
 @Module({
-	imports: [ServerModule],
+	imports: [
+		CoreModule
+	],
 	providers: [
+		/**
+		 * ILoggerRepository Provider
+		 */
 		{
 			provide: "ILoggerRepository",
 			useClass: LokiServiceImpl
 		},
+
+		/**
+		 * Global Exception Filter
+		 */
 		{
 			provide: APP_FILTER,
 			useClass: PrometheusExceptionFilter
 		},
+
+		/**
+		 * Global Logging Interceptor
+		 */
 		{
 			provide: APP_INTERCEPTOR,
 			useClass: LoggingInterceptor
 		},
+
+		/**
+		 * PrometheusService
+		 */
 		PrometheusService,
+
+		/**
+		 * LokiServiceImpl - Main logging service
+		 */
+		LokiServiceImpl,
+
+		/**
+		 * LokiBaseServiceImpl - Health service with lazy loading
+		 * Will lazy load HealthCheckService and ConnectionManager
+		 */
 		LokiBaseServiceImpl,
 	],
-	controllers: [PrometheusController],
-	exports: ["ILoggerRepository", LokiBaseServiceImpl],
+	controllers: [
+		PrometheusController
+	],
+	exports: [
+		"ILoggerRepository",
+		LokiBaseServiceImpl
+	],
 })
 export class ObservabilityModule {}

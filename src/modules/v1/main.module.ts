@@ -9,36 +9,42 @@ import { ServerModule } from './server.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ObservabilityModule } from './observablity.module';
 import { HealthCheckGuard } from 'src/infrastructure/health/health.guard';
+import { CoreModule } from './core.module';
 
 /**
- * MainV1Module
+ * MainV1Module with Lazy Loading Support
  * 
- * This module serves as the main entry point for the API version v1.
- * It integrates all sub-modules, sets up routing, throttling, and global guards.
+ * Standard module imports. CoreModule is imported first to ensure services
+ * are available for lazy loading by other modules.
  * 
- * Features:
- * - Integrates core modules: AuthModule, AccountModule, TasksModule, DatabaseModule, NotifyModule, ServerModule
- * - Registers API routes under `/v1`
- * - Enables global request throttling using ThrottlerModule and ThrottlerGuard
- * - Integrates ObservabilityModule for monitoring and logging
- * 
- * Providers:
- * - ThrottlerGuard applied globally via APP_GUARD
- * 
- * Exports:
- * - All core modules for use in other parts of the application
+ * @export
+ * @class MainV1Module
  */
 @Module({
 	imports: [
-		ServerModule,
+		/**
+		 * CoreModule first - provides services for lazy loading
+		 */
+		CoreModule,
+
+		/**
+		 * ObservabilityModule - will lazy load CoreModule services
+		 */
 		ObservabilityModule,
+
+		/**
+		 * Other modules in standard order
+		 */
+		ServerModule,
 		AuthModule,
 		DatabaseModule,
 		AccountModule,
 		TasksModule,
 		NotifyModule,
 
-		// API routing for v1
+		/**
+		 * Routing and throttling configuration
+		 */
 		RouterModule.register([
 			{
 				path: "v1",
@@ -50,22 +56,20 @@ import { HealthCheckGuard } from 'src/infrastructure/health/health.guard';
 			},
 		]),
 
-		// Request throttling configuration
 		ThrottlerModule.forRoot({
 			throttlers: [
 				{
-					ttl: 60000,   // Time to live for requests in milliseconds
-					limit: 25,    // Max number of requests per TTL
+					ttl: 60000,
+					limit: 25,
 				}
 			]
 		}),
-
 	],
 	controllers: [],
 	providers: [
 		{
 			provide: APP_GUARD,
-			useClass: ThrottlerGuard, // Apply global throttling guard
+			useClass: ThrottlerGuard,
 		},
 		{
 			provide: APP_GUARD,
@@ -73,12 +77,14 @@ import { HealthCheckGuard } from 'src/infrastructure/health/health.guard';
 		}
 	],
 	exports: [
+		CoreModule,
+		ObservabilityModule,
+		ServerModule,
 		AuthModule,
 		DatabaseModule,
 		AccountModule,
 		TasksModule,
 		NotifyModule,
-		ServerModule,
 	]
 })
 export class MainV1Module {}

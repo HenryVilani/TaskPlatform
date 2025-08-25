@@ -12,6 +12,9 @@ import { HttpErrorCounter } from "src/infrastructure/observability/prometheus/pr
 import { HealthCheckService } from "src/infrastructure/health/health-check.service";
 import { RedisServiceImpl } from "src/infrastructure/queue/bullmq/redis.impl";
 import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
+import { ConnectionManager } from "src/infrastructure/health/connection-manager";
+import { ILoggerRepository } from "src/application/services/logger.repository";
+import { NestLogServiceImpl } from "src/infrastructure/observability/nestLog/nestlog.service.impl";
 
 /**
  * WebSocket Gateway for task notifications.
@@ -33,13 +36,15 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	@WebSocketServer()
 	private server: Server;
 
+	private logger: ILoggerRepository | null = null;
+
 	constructor(
 		@Inject("IAuthRepository") private readonly authRepository: IAuthRepository,
 		@Inject("ITaskRepository") private readonly taskRepository: ITaskRepository,
 		@Inject("IUserRepository") private readonly userRepository: IUserRepository,
 		@Inject("ISchedulerRepository") private readonly scheduleRepository: ISchedulerRepository,
 		private readonly healthCheck: HealthCheckService,
-		private readonly logger: LokiServiceImpl
+		private readonly connectionManager: ConnectionManager
 	) {}
 
 	/**
@@ -47,14 +52,17 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	 * This method is called when the module is initialized.
 	 */
 	async onModuleInit() {
-		this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+
+		this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
+
+		this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 			action: "initializing",
 			timestamp: new Date().toISOString()
 		});
 
 		const redisService = this.healthCheck.getService<RedisServiceImpl>("redis");
 		if (!redisService) {
-			this.logger.register("Warn", "WEBSOCKET_GATEWAY", {
+			this.logger?.register("Warn", "WEBSOCKET_GATEWAY", {
 				action: "initialization_skipped",
 				reason: "redis_service_unavailable",
 				timestamp: new Date().toISOString()
@@ -64,7 +72,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
 		const redis = await redisService.service.getService<Redis>();
 		if (!redis) {
-			this.logger.register("Warn", "WEBSOCKET_GATEWAY", {
+			this.logger?.register("Warn", "WEBSOCKET_GATEWAY", {
 				action: "initialization_skipped",
 				reason: "redis_unhealthy",
 				timestamp: new Date().toISOString()
@@ -74,7 +82,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
 		redis.psubscribe("user:*:notifications");
 		
-		this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+		this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 			action: "subscribed_to_redis_channels",
 			pattern: "user:*:notifications",
 			timestamp: new Date().toISOString()
@@ -85,7 +93,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 			this.subscriberCallback(pattern, channel, message);
 		});
 
-		this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+		this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 			action: "initialized",
 			timestamp: new Date().toISOString()
 		});
@@ -96,7 +104,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	 * @param {Server} server - The initialized Socket.IO server
 	 */
 	afterInit(server: Server) {
-		this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+		this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 			action: "websocket_server_initialized",
 			timestamp: new Date().toISOString()
 		});
@@ -111,7 +119,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 		const token: string | null = socket.handshake.auth.token;
 
 		if (!token) {
-			this.logger.register("Warn", "WEBSOCKET_GATEWAY", {
+			this.logger?.register("Warn", "WEBSOCKET_GATEWAY", {
 				action: "connection_rejected",
 				reason: "no_token",
 				socketId: socket.id,
@@ -125,14 +133,14 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 			const user = await this.authRepository.validateToken(token);
 			await socket.join(`user:${user.sub}`);
 			
-			this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+			this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 				action: "user_connected",
 				userId: user.sub,
 				socketId: socket.id,
 				timestamp: new Date().toISOString()
 			});
 		} catch (error) {
-			this.logger.register("Warn", "WEBSOCKET_GATEWAY", {
+			this.logger?.register("Warn", "WEBSOCKET_GATEWAY", {
 				action: "connection_rejected",
 				reason: "invalid_token",
 				socketId: socket.id,
@@ -148,7 +156,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	 * @param {Socket} socket - The disconnected client socket
 	 */
 	handleDisconnect(socket: Socket) {
-		this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+		this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 			action: "user_disconnected",
 			socketId: socket.id,
 			timestamp: new Date().toISOString()
@@ -166,7 +174,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 		try {
 			const channelParts = channel.split(":");
 			if (channelParts.length !== 3 || channelParts[0] !== "user" || channelParts[2] !== "notifications") {
-				this.logger.register("Warn", "WEBSOCKET_GATEWAY", {
+				this.logger?.register("Warn", "WEBSOCKET_GATEWAY", {
 					action: "invalid_channel_format",
 					channel,
 					timestamp: new Date().toISOString()
@@ -180,7 +188,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
 			const user = await this.userRepository.findById(userId);
 			if (!user) {
-				this.logger.register("Warn", "WEBSOCKET_GATEWAY", {
+				this.logger?.register("Warn", "WEBSOCKET_GATEWAY", {
 					action: "user_not_found",
 					userId,
 					taskId: wsTask.id,
@@ -191,7 +199,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
 			const dbTask = await this.taskRepository.findById(user, wsTask.id);
 			if (!dbTask) {
-				this.logger.register("Warn", "WEBSOCKET_GATEWAY", {
+				this.logger?.register("Warn", "WEBSOCKET_GATEWAY", {
 					action: "task_not_found",
 					userId,
 					taskId: wsTask.id,
@@ -203,7 +211,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 			// Emit the task notification to the user's room
 			this.server.to(`user:${userId}`).emit("task:notify", wsTask);
 
-			this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+			this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 				action: "notification_emitted",
 				userId,
 				taskId: wsTask.id,
@@ -218,7 +226,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 					await this.scheduleRepository.removeSchedule(dbTask.jobId);
 					dbTask.jobId = null;
 				}
-				this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+				this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 					action: "task_marked_as_sent",
 					taskId: dbTask.id,
 					notifyType: "OneTime",
@@ -226,7 +234,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 				});
 			} else if (dbTask.notifyType == "EveryTime") {
 				dbTask.markAsScheduled();
-				this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+				this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 					action: "task_marked_as_scheduled",
 					taskId: dbTask.id,
 					notifyType: "EveryTime",
@@ -237,7 +245,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 			await this.taskRepository.update(user, dbTask);
 
 		} catch (error) {
-			this.logger.register("Error", "WEBSOCKET_GATEWAY", {
+			this.logger?.register("Error", "WEBSOCKET_GATEWAY", {
 				action: "subscriber_callback_failed",
 				channel,
 				error: error.message,
@@ -253,7 +261,7 @@ export class NotifyGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 	@SubscribeMessage('ping')
 	handlePing(socket: Socket): void {
 		socket.emit('pong', 'Gateway is working');
-		this.logger.register("Info", "WEBSOCKET_GATEWAY", {
+		this.logger?.register("Info", "WEBSOCKET_GATEWAY", {
 			action: "ping_handled",
 			socketId: socket.id,
 			timestamp: new Date().toISOString()

@@ -3,9 +3,9 @@ import { IHealthService, HealthServiceStatus } from "src/application/services/he
 import { ConnectionManager } from "src/infrastructure/health/connection-manager";
 import { HealthCheckService } from "src/infrastructure/health/health-check.service";
 import { DataSource, DataSourceOptions } from "typeorm";
-import { PostgreSQLConfig } from "./postgre.datasource";
-import { ServiceErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
 import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
+import { ILoggerRepository } from "src/application/services/logger.repository";
+import { NestLogServiceImpl } from "src/infrastructure/observability/nestLog/nestlog.service.impl";
 
 /**
  * PostgreSQL health service implementation that manages database connections and health checks.
@@ -22,6 +22,8 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 	 */
 	private readonly connectionName = "database";
 
+	private logger: ILoggerRepository | null = null;
+
 	/**
 	 * Constructor for PostgreSQL health service.
 	 * @param {DataSource} datasource - The TypeORM DataSource instance
@@ -32,8 +34,7 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 	constructor(
 		@Inject("Datasource") private readonly datasource: DataSource,
 		private readonly healthCheck: HealthCheckService,
-		private readonly connectionManager: ConnectionManager,
-		private readonly logger: LokiServiceImpl
+		private readonly connectionManager: ConnectionManager		
 
 	) {}
 
@@ -41,8 +42,10 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 	 * Lifecycle hook called after module initialization.
 	 * Registers this service with the health check system.
 	 */
-	onModuleInit() {
+	async onModuleInit() {
 		this.healthCheck.register(this.connectionName, this);
+
+		this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
 	}
 
 	/**
@@ -99,7 +102,7 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 			return isValid ? "Health" : "UnHealth";
 
 		} catch (error) {
-			this.logger.register("Error", "DATABASE_HEALTH_CHECK", {
+			this.logger?.register("Error", "DATABASE_HEALTH_CHECK", {
 				service: this.connectionName,
 				error: error.message,
 				timestamp: new Date().toISOString()
@@ -121,7 +124,7 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 
 		if (!datasource.isInitialized) {
 			try {
-				this.logger.register("Info", "DATABASE_CONNECTION", {
+				this.logger?.register("Info", "DATABASE_CONNECTION", {
 					service: this.connectionName,
 					action: "initializing",
 					timestamp: new Date().toISOString()
@@ -129,14 +132,14 @@ export class PostgreSQLServiceImpl implements IHealthService, OnModuleInit, OnMo
 
 				await datasource.initialize();
 
-				this.logger.register("Info", "DATABASE_CONNECTION", {
+				this.logger?.register("Info", "DATABASE_CONNECTION", {
 					service: this.connectionName,
 					action: "initialized",
 					timestamp: new Date().toISOString()
 				});
 
 			}catch (error){
-				this.logger.register("Error", "DATABASE_CONNECTION", {
+				this.logger?.register("Error", "DATABASE_CONNECTION", {
 					service: this.connectionName,
 					action: "initialization_failed",
 					error: error.message,

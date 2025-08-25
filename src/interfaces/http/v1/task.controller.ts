@@ -1,4 +1,4 @@
-import { Body, Controller, Logger, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Logger, OnModuleInit, Post, Req, UseGuards } from "@nestjs/common";
 import { type Request } from "express";
 import { TokenDataDTO } from "../../../application/dtos/token.dto";
 import { InvalidToken } from "src/application/erros/auth.errors";
@@ -13,19 +13,30 @@ import { TaskCreateDTO, TaskDTO, TaskIdentifierDTO, TaskFetchSegmentDTO, TaskUpd
 import { JWTGuard } from "src/infrastructure/auth/jwt/jwt.guard";
 import { HealthCheckGuard } from "src/infrastructure/health/health.guard";
 import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
+import { ILoggerRepository } from "src/application/services/logger.repository";
+import { ConnectionManager } from "src/infrastructure/health/connection-manager";
+import { NestLogServiceImpl } from "src/infrastructure/observability/nestLog/nestlog.service.impl";
 
 @ApiExtraModels(StatusDTO, TaskDTO)
 @ApiTags("Task")
 @Controller("task")
-export class TaskController {
+export class TaskController implements OnModuleInit {
+
+	private logger: ILoggerRepository | null = null;
 
 	constructor(
 		private readonly createTaskUseCase: CreateTaskUseCase,
 		private readonly updateTaskUseCase: UpdateTaskUseCase,
 		private readonly deleteTaskUseCase: DeleteTaskUseCase,
 		private readonly listTaskUseCase: ListTaskUseCase,
-		private readonly logger: LokiServiceImpl
+		private readonly connectionManager: ConnectionManager
 	) {}
+
+	async onModuleInit() {
+		
+		this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
+
+	}
 
 	/**
 	 * POST /task/create
@@ -52,7 +63,7 @@ export class TaskController {
 		try {
 			const user = request.user as TokenDataDTO;
 			
-			this.logger.register("Info", "TASK_CONTROLLER", {
+			this.logger?.register("Info", "TASK_CONTROLLER", {
 				action: "create_task_attempt",
 				userId: user.sub,
 				taskName: body.name,
@@ -61,7 +72,7 @@ export class TaskController {
 
 			const task = await this.createTaskUseCase.execute(body, user);
 			
-			this.logger.register("Info", "TASK_CONTROLLER", {
+			this.logger?.register("Info", "TASK_CONTROLLER", {
 				action: "create_task_success",
 				userId: user.sub,
 				taskId: task.id,
@@ -73,7 +84,7 @@ export class TaskController {
 		} catch (error) {
 			const user = request.user as TokenDataDTO;
 			
-			this.logger.register("Error", "TASK_CONTROLLER", {
+			this.logger?.register("Error", "TASK_CONTROLLER", {
 				action: "create_task_failed",
 				userId: user?.sub,
 				taskName: body.name,
@@ -111,7 +122,7 @@ export class TaskController {
 		try {
 			const user = request.user as TokenDataDTO;
 			
-			this.logger.register("Info", "TASK_CONTROLLER", {
+			this.logger?.register("Info", "TASK_CONTROLLER", {
 				action: "update_task_attempt",
 				userId: user.sub,
 				taskId: body.id,
@@ -121,7 +132,7 @@ export class TaskController {
 
 			const task = await this.updateTaskUseCase.execute(body, user);
 			
-			this.logger.register("Info", "TASK_CONTROLLER", {
+			this.logger?.register("Info", "TASK_CONTROLLER", {
 				action: "update_task_success",
 				userId: user.sub,
 				taskId: task.id,
@@ -133,7 +144,7 @@ export class TaskController {
 		} catch (error) {
 			const user = request.user as TokenDataDTO;
 			
-			this.logger.register("Error", "TASK_CONTROLLER", {
+			this.logger?.register("Error", "TASK_CONTROLLER", {
 				action: "update_task_failed",
 				userId: user?.sub,
 				taskId: body.id,
@@ -162,7 +173,7 @@ export class TaskController {
 		try {
 			const user = request.user as TokenDataDTO;
 			
-			this.logger.register("Info", "TASK_CONTROLLER", {
+			this.logger?.register("Info", "TASK_CONTROLLER", {
 				action: "delete_task_attempt",
 				userId: user.sub,
 				taskId: body.id,
@@ -171,7 +182,7 @@ export class TaskController {
 
 			await this.deleteTaskUseCase.execute(body.id, user);
 			
-			this.logger.register("Info", "TASK_CONTROLLER", {
+			this.logger?.register("Info", "TASK_CONTROLLER", {
 				action: "delete_task_success",
 				userId: user.sub,
 				taskId: body.id,
@@ -182,7 +193,7 @@ export class TaskController {
 		} catch (error) {
 			const user = request.user as TokenDataDTO;
 			
-			this.logger.register("Error", "TASK_CONTROLLER", {
+			this.logger?.register("Error", "TASK_CONTROLLER", {
 				action: "delete_task_failed",
 				userId: user?.sub,
 				taskId: body.id,
@@ -219,7 +230,7 @@ export class TaskController {
 		try {
 			const user = request.user as TokenDataDTO;
 			
-			this.logger.register("Info", "TASK_CONTROLLER", {
+			this.logger?.register("Info", "TASK_CONTROLLER", {
 				action: "list_tasks_attempt",
 				userId: user.sub,
 				limit: body.limit,
@@ -229,7 +240,7 @@ export class TaskController {
 
 			const segment = await this.listTaskUseCase.execute(user, body.limit, body.cursor);
 			
-			this.logger.register("Info", "TASK_CONTROLLER", {
+			this.logger?.register("Info", "TASK_CONTROLLER", {
 				action: "list_tasks_success",
 				userId: user.sub,
 				tasksCount: segment.tasks.length,
@@ -241,7 +252,7 @@ export class TaskController {
 		} catch (error) {
 			const user = request.user as TokenDataDTO;
 			
-			this.logger.register("Error", "TASK_CONTROLLER", {
+			this.logger?.register("Error", "TASK_CONTROLLER", {
 				action: "list_tasks_failed",
 				userId: user?.sub,
 				limit: body.limit,

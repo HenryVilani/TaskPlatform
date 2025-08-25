@@ -5,6 +5,7 @@ import { AuthModule } from './auth.module';
 import { DatabaseModule } from './database.module';
 import { RedisServiceImpl } from 'src/infrastructure/queue/bullmq/redis.impl';
 import { ServerModule } from './server.module';
+import { CoreModule } from './core.module';
 
 /**
  * NotifyModule
@@ -27,7 +28,7 @@ import { ServerModule } from './server.module';
  * - ISchedulerRepository: Allows other modules to schedule tasks
  */
 @Module({
-	imports: [AuthModule, DatabaseModule, ServerModule, ServerModule],
+	imports: [CoreModule, AuthModule, DatabaseModule, ServerModule, ServerModule],
 	providers: [
 		{
 			provide: "ISchedulerRepository",

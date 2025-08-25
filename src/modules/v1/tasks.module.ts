@@ -8,6 +8,7 @@ import { DatabaseModule } from './database.module';
 import { AuthModule } from './auth.module';
 import { NotifyModule } from './notify.module';
 import { ServerModule } from './server.module';
+import { CoreModule } from './core.module';
 
 /**
  * TasksModule
@@ -39,6 +40,7 @@ import { ServerModule } from './server.module';
  */
 @Module({
 	imports: [
+		CoreModule,
 		DatabaseModule,
 		AuthModule,
 		NotifyModule,

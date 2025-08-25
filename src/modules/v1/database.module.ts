@@ -5,6 +5,7 @@ import { TaskPostgreImpl } from 'src/infrastructure/database/postgresql/task.rep
 import { UserPostgreImpl } from 'src/infrastructure/database/postgresql/user.repository.impl';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { ServerModule } from './server.module';
+import { CoreModule } from './core.module';
 
 /**
  * DatabaseModule
@@ -25,8 +26,7 @@ import { ServerModule } from './server.module';
  */
 @Module({
 	imports: [
-		// TypeOrmModule.forRoot(PostgreSQLConfig as TypeOrmModuleOptions),
-		// TypeOrmModule.forFeature([UserSchema, TaskSchema])
+		CoreModule,
 		ServerModule
 	],
 	providers: [

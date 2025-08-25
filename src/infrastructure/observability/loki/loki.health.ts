@@ -1,14 +1,28 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { IHealthService, HealthServiceStatus } from "src/application/services/health-service.repository";
-import { HealthCheckService } from "src/infrastructure/health/health-check.service";
 import LokiTransport from "winston-loki";
 import axios from "axios";
-import { ConnectionManager } from "src/infrastructure/health/connection-manager";
-import { ServiceErrorCounter } from "src/infrastructure/observability/prometheus/prometheus-metrics";
+import { ModuleRef, LazyModuleLoader } from "@nestjs/core";
+import type { HealthCheckService } from "src/infrastructure/health/health-check.service";
+import type { ConnectionManager } from "src/infrastructure/health/connection-manager";
 
 /**
- * Health service implementation for Loki logging system.
- * Manages Loki connections and provides health monitoring for the logging service.
+ * LokiBaseServiceImpl with Lazy Loading
+ * 
+ * Uses lazy loading to resolve circular dependencies between modules.
+ * Services are loaded on-demand after full application initialization.
+ * 
+ * Lazy Loading Strategy:
+ * - HealthCheckService and ConnectionManager are loaded lazily
+ * - No direct injection in constructor to avoid circular dependencies
+ * - Services are resolved when first needed
+ * - Graceful fallback if services are not available
+ * 
+ * @export
+ * @class LokiBaseServiceImpl
+ * @implements {IHealthService}
+ * @implements {OnModuleInit}
+ * @implements {OnModuleDestroy}
  */
 @Injectable()
 export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModuleDestroy {
@@ -17,56 +31,209 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 	 * Connection name identifier for the Loki service
 	 * @private
 	 * @readonly
-	 * @type {string}
 	 */
 	private readonly connectionName = "log";
 
 	/**
-	 * Loki transport instance for Winston logging
+	 * Lazily loaded HealthCheckService instance
 	 * @private
-	 * @type {LokiTransport | null}
 	 */
-	private loki: LokiTransport | null = null;
+	private healthCheckService: HealthCheckService | null = null;
 
 	/**
-	 * Constructor for Loki health service.
-	 * @param {HealthCheckService} healthCheck - Health check service for monitoring
-	 * @param {ConnectionManager} connectionManager - Connection manager for handling Loki connections
+	 * Lazily loaded ConnectionManager instance
+	 * @private
+	 */
+	private connectionManager: ConnectionManager | null = null;
+
+	/**
+	 * Flag to track if lazy loading has been attempted
+	 * @private
+	 */
+	private servicesLoaded = false;
+
+	/**
+	 * Constructor with lazy module loader for resolving circular dependencies.
+	 * 
+	 * @param {ModuleRef} moduleRef - Module reference for service resolution
+	 * @param {LazyModuleLoader} lazyModuleLoader - Lazy module loader for dynamic imports
 	 */
 	constructor(
-		private readonly healthCheck: HealthCheckService,
-		private readonly connectionManager: ConnectionManager
+		private readonly moduleRef: ModuleRef,
+		private readonly lazyModuleLoader: LazyModuleLoader
 	) {}
 
 	/**
 	 * Lifecycle hook called after module initialization.
-	 * Registers this service with health check and creates initial Loki connection.
+	 * Initiates lazy loading of required services.
+	 * 
 	 * @returns {Promise<void>}
 	 */
 	async onModuleInit() {
+		console.log('[LokiBaseService] Initializing with lazy loading...');
+		
+		// Defer service loading to avoid circular dependencies
+		setTimeout(() => {
+			this.loadServicesLazily();
+		}, 100);
 
-		// Registra no health check
-		this.healthCheck.register(this.connectionName, this);
-
-		// Cria a conexão Loki inicial
-		await this.getService<LokiTransport>();
-
+		// Attempt to create initial Loki connection
+		try {
+			await this.getService<LokiTransport>();
+			console.log('[LokiBaseService] Loki health service initialized successfully');
+		} catch (error) {
+			console.warn('[LokiBaseService] Initial Loki connection failed:', error.message);
+		}
 	}
 
 	/**
 	 * Lifecycle hook called before module destruction.
-	 * Disconnects Loki connections gracefully.
 	 * @returns {Promise<void>}
 	 */
 	async onModuleDestroy() {
-
-		await this.connectionManager.disconnect(this.connectionName);
-
+		console.log('[LokiBaseService] Shutting down Loki health service...');
+		
+		if (this.connectionManager) {
+			await this.connectionManager.disconnect(this.connectionName);
+		}
+		
+		console.log('[LokiBaseService] Loki health service shutdown complete');
 	}
 
 	/**
-	 * Health check via endpoint /ready do Loki
-	 * @returns {Promise<HealthServiceStatus>} Health status ("Health" or "UnHealth")
+	 * Lazily loads required services to avoid circular dependencies.
+	 * Uses multiple fallback strategies to resolve services.
+	 * 
+	 * @private
+	 * @returns {Promise<void>}
+	 */
+	private async loadServicesLazily(): Promise<void> {
+		if (this.servicesLoaded) return;
+
+		console.log('[LokiBaseService] Attempting lazy service loading...');
+
+		try {
+			// Strategy 1: Try to get services from current module context
+			await this.loadFromCurrentContext();
+			
+			// Strategy 2: If failed, try lazy module loading
+			if (!this.healthCheckService || !this.connectionManager) {
+				await this.loadFromLazyModule();
+			}
+
+			// Strategy 3: If still failed, try global application context
+			if (!this.healthCheckService || !this.connectionManager) {
+				await this.loadFromGlobalContext();
+			}
+
+			this.servicesLoaded = true;
+
+			// Register with health check service if available
+			if (this.healthCheckService) {
+				this.healthCheckService.register(this.connectionName, this);
+				console.log('[LokiBaseService] Successfully registered with HealthCheckService');
+			} else {
+				console.warn('[LokiBaseService] HealthCheckService not available, continuing without health monitoring');
+			}
+
+		} catch (error) {
+			console.error('[LokiBaseService] Failed to load services lazily:', error.message);
+			this.servicesLoaded = true; // Mark as loaded to avoid repeated attempts
+		}
+	}
+
+	/**
+	 * Strategy 1: Load services from current module context
+	 * @private
+	 */
+	private async loadFromCurrentContext(): Promise<void> {
+		try {
+			// Try to get services from current module context
+			this.healthCheckService = this.moduleRef.get('HealthCheckService', { strict: false });
+			this.connectionManager = this.moduleRef.get('ConnectionManager', { strict: false });
+			
+			console.log('[LokiBaseService] Loaded services from current context');
+		} catch (error) {
+			console.log('[LokiBaseService] Current context loading failed, trying next strategy...');
+		}
+	}
+
+	/**
+	 * Strategy 2: Load services using lazy module loader
+	 * @private
+	 */
+	private async loadFromLazyModule(): Promise<void> {
+		try {
+			// Dynamically import CoreModule
+			const { CoreModule } = await import('src/modules/v1/core.module.js');
+			
+			// Load the module lazily
+			const moduleRef = await this.lazyModuleLoader.load(() => CoreModule);
+			
+			// Get services from the loaded module
+			if (!this.healthCheckService) {
+				this.healthCheckService = moduleRef.get('HealthCheckService', { strict: false });
+			}
+			
+			if (!this.connectionManager) {
+				this.connectionManager = moduleRef.get('ConnectionManager', { strict: false });
+			}
+			
+			console.log('[LokiBaseService] Loaded services from lazy module');
+		} catch (error) {
+			console.log('[LokiBaseService] Lazy module loading failed, trying next strategy...');
+		}
+	}
+
+	/**
+	 * Strategy 3: Load services from global application context
+	 * @private
+	 */
+	private async loadFromGlobalContext(): Promise<void> {
+		try {
+			// Try to get services from global context using class references
+			const { HealthCheckService } = await import("src/infrastructure/health/health-check.service.js");
+			const { ConnectionManager } = await import('src/infrastructure/health/connection-manager.js');
+			
+			if (!this.healthCheckService) {
+				this.healthCheckService = this.moduleRef.get(HealthCheckService, { strict: false });
+			}
+			
+			if (!this.connectionManager) {
+				this.connectionManager = this.moduleRef.get(ConnectionManager, { strict: false });
+			}
+			
+			console.log('[LokiBaseService] Loaded services from global context');
+		} catch (error) {
+			console.warn('[LokiBaseService] All service loading strategies failed');
+		}
+	}
+
+	/**
+	 * Safe getter for HealthCheckService
+	 * @private
+	 */
+	private async getHealthCheckService(): Promise<HealthCheckService | null> {
+		if (!this.servicesLoaded) {
+			await this.loadServicesLazily();
+		}
+		return this.healthCheckService;
+	}
+
+	/**
+	 * Safe getter for ConnectionManager
+	 * @private
+	 */
+	private async getConnectionManager(): Promise<ConnectionManager | null> {
+		if (!this.servicesLoaded) {
+			await this.loadServicesLazily();
+		}
+		return this.connectionManager;
+	}
+
+	/**
+	 * Health check implementation - works with or without ConnectionManager
+	 * @returns {Promise<HealthServiceStatus>}
 	 */
 	async isHealth(): Promise<HealthServiceStatus> {
 		const url = (process.env.LOKI_URL ?? "http://localhost:3100") + "/ready";
@@ -80,96 +247,109 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 	}
 
 	/**
-	 * Gets the Loki service if it's healthy.
+	 * Gets the Loki service - uses ConnectionManager if available, fallback otherwise
 	 * @template T
-	 * @returns {Promise<T | null>} The Loki service instance or null if unhealthy
+	 * @returns {Promise<T | null>}
 	 */
 	async getService<T>(): Promise<T | null> {
-
 		const healthStatus = await this.isHealth();
-
 		if (healthStatus !== "Health") {
 			return null;
 		}
 
-		// Obtém conexão existente ou cria nova via connectionManager
-		const loki = await this.connectionManager.getConnection<LokiTransport>(
-			this.connectionName,
-			() => this.createLokiConnection(),
-			{
-				connectionTimeout: 3000,
-				maxRetries: 2,
-				retryDelay: 1000
-			}
-		);
-
-		return loki as T;
-	}
-
-	/**
-	 * Gets a healthy Loki connection for use in loggers.
-	 * @returns {Promise<LokiTransport | null>} Loki transport instance or null if unhealthy
-	 */
-	async getHealthyConnection(): Promise<LokiTransport | null> {
-
-		try {
-
-			const healthStatus = await this.isHealth();
-
-			if (healthStatus !== "Health") {
-
+		const connectionManager = await this.getConnectionManager();
+		
+		if (connectionManager) {
+			// Use ConnectionManager if available
+			const loki = await connectionManager.getConnection<LokiTransport>(
+				this.connectionName,
+				() => this.createLokiConnection(),
+				{
+					connectionTimeout: 3000,
+					maxRetries: 2,
+					retryDelay: 1000
+				}
+			);
+			return loki as T;
+		} else {
+			// Fallback: direct connection creation
+			console.log('[LokiBaseService] ConnectionManager not available, creating direct connection');
+			try {
+				const loki = await this.createLokiConnection();
+				return loki as T;
+			} catch (error) {
+				console.error('[LokiBaseService] Failed to create direct connection:', error.message);
 				return null;
-
 			}
-
-			return await this.getService<LokiTransport>();
-
-		} catch (error) {
-
-			return null;
-			
 		}
 	}
 
 	/**
-	 * Creates a new LokiTransport instance.
+	 * Gets a healthy Loki connection for loggers
+	 * @returns {Promise<LokiTransport | null>}
+	 */
+	async getHealthyConnection(): Promise<LokiTransport | null> {
+		try {
+			const healthStatus = await this.isHealth();
+			if (healthStatus !== "Health") {
+				return null;
+			}
+			return await this.getService<LokiTransport>();
+		} catch (error) {
+			console.error('[LokiBaseService] Error getting healthy connection:', error.message);
+			return null;
+		}
+	}
+
+	/**
+	 * Creates a new LokiTransport instance
 	 * @private
-	 * @returns {Promise<LokiTransport>} New Loki transport instance
-	 * @throws {Error} If Loki service is unhealthy
 	 */
 	private async createLokiConnection(): Promise<LokiTransport> {
+		console.log('[LokiBaseService] Creating new Loki transport connection...');
 
 		const loki = new LokiTransport({
 			host: process.env.LOKI_URL ?? "http://localhost:3100",
-			labels: { service: process.env.SERVICE_NAME ?? "my-service" },
+			labels: { 
+				service: process.env.SERVICE_NAME ?? "my-service",
+				environment: process.env.NODE_ENV ?? "development"
+			},
 			json: true,
-			batching: false
+			batching: false,
+			timeout: 3000
 		});
 
+		// Error handling
 		loki.on('error', (err) => {
-
+			console.error('[LokiBaseService] Loki transport error:', err.message);
 		});
 
+		loki.on('warn', (warning) => {
+			console.warn('[LokiBaseService] Loki transport warning:', warning);
+		});
+
+		// Verify health before returning
 		const health = await this.isHealth();
-
 		if (health !== "Health") {
-
-			throw new Error("Cannot create Loki connection - service unhealthy");
-
+			throw new Error("Cannot create Loki connection - service is unhealthy");
 		}
 
+		console.log('[LokiBaseService] Loki transport connection created successfully');
 		return loki;
 	}
 
 	/**
-	 * Forces a reset of the Loki connection.
+	 * Forces a reset of connections
 	 * @returns {Promise<void>}
 	 */
 	async resetConnection(): Promise<void> {
-
-		await this.connectionManager.disconnect(this.connectionName);
-		this.loki = null;
-
+		console.log('[LokiBaseService] Resetting Loki connections...');
+		
+		const connectionManager = await this.getConnectionManager();
+		if (connectionManager) {
+			await connectionManager.disconnect(this.connectionName);
+		}
+		
+		console.log('[LokiBaseService] Loki connection reset completed');
 	}
-
 }

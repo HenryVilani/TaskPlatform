@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { LokiServiceImpl } from "../observability/loki/loki.service.impl";
 
 export interface ConnectionConfig {
@@ -18,7 +18,7 @@ export class ConnectionManager {
 	private connectionStatus: Map<string, 'connecting' | 'connected' | 'disconnected' | 'error'> = new Map();
 
 	constructor(
-		private readonly logger: LokiServiceImpl
+		//@Inject(forwardRef(() => LokiServiceImpl)) private readonly logger: LokiServiceImpl
 	) {}
 
 	/**
@@ -55,24 +55,11 @@ export class ConnectionManager {
 			this.connections.set(name, connection);
 			this.connectionStatus.set(name, 'connected');
 			this.connectionPromises.delete(name);
-			
-			this.logger.register("Info", "CONNECTION_MANAGER", {
-				service: name,
-				action: "connection_established",
-				timestamp: new Date().toISOString()
-			});
 
 			return connection;
 		} catch (error) {
 			this.connectionStatus.set(name, 'error');
 			this.connectionPromises.delete(name);
-			
-			this.logger.register("Error", "CONNECTION_MANAGER", {
-				service: name,
-				action: "connection_failed",
-				error: error.message,
-				timestamp: new Date().toISOString()
-			});
 
 			return null;
 		}
@@ -98,14 +85,6 @@ export class ConnectionManager {
 
 		for (let attempt = 1; attempt <= finalConfig.maxRetries; attempt++) {
 			try {
-				this.logger.register("Info", "CONNECTION_MANAGER", {
-					service: name,
-					action: "connection_attempt",
-					attempt,
-					maxRetries: finalConfig.maxRetries,
-					timestamp: new Date().toISOString()
-				});
-
 				// Create connection with timeout
 				const connection = await Promise.race([
 					factory(),
@@ -114,31 +93,31 @@ export class ConnectionManager {
 					)
 				]);
 
-				this.logger.register("Info", "CONNECTION_MANAGER", {
-					service: name,
-					action: "connection_success",
-					attempt,
-					timestamp: new Date().toISOString()
-				});
+				// this.logger.register("Info", "CONNECTION_MANAGER", {
+				// 	service: name,
+				// 	action: "connection_success",
+				// 	attempt,
+				// 	timestamp: new Date().toISOString()
+				// });
 
 				return connection;
 			} catch (error) {
-				this.logger.register("Warn", "CONNECTION_MANAGER", {
-					service: name,
-					action: "connection_attempt_failed",
-					attempt,
-					error: error.message,
-					timestamp: new Date().toISOString()
-				});
+				// this.logger.register("Warn", "CONNECTION_MANAGER", {
+				// 	service: name,
+				// 	action: "connection_attempt_failed",
+				// 	attempt,
+				// 	error: error.message,
+				// 	timestamp: new Date().toISOString()
+				// });
 				
 				if (attempt < finalConfig.maxRetries) {
 					const delay = finalConfig.retryDelay * attempt; // Linear backoff
-					this.logger.register("Info", "CONNECTION_MANAGER", {
-						service: name,
-						action: "retry_delay",
-						delay,
-						timestamp: new Date().toISOString()
-					});
+					// this.logger.register("Info", "CONNECTION_MANAGER", {
+					// 	service: name,
+					// 	action: "retry_delay",
+					// 	delay,
+					// 	timestamp: new Date().toISOString()
+					// });
 					await new Promise(resolve => setTimeout(resolve, delay));
 				} else {
 					throw error;
@@ -169,12 +148,12 @@ export class ConnectionManager {
 			}
 			return isValid;
 		} catch (error) {
-			this.logger.register("Warn", "CONNECTION_MANAGER", {
-				service: name,
-				action: "validation_failed",
-				error: error.message,
-				timestamp: new Date().toISOString()
-			});
+			// this.logger.register("Warn", "CONNECTION_MANAGER", {
+			// 	service: name,
+			// 	action: "validation_failed",
+			// 	error: error.message,
+			// 	timestamp: new Date().toISOString()
+			// });
 			this.markConnectionAsInvalid(name);
 			return false;
 		}
@@ -186,11 +165,11 @@ export class ConnectionManager {
 	private markConnectionAsInvalid(name: string): void {
 		this.connections.delete(name);
 		this.connectionStatus.set(name, 'error');
-		this.logger.register("Warn", "CONNECTION_MANAGER", {
-			service: name,
-			action: "connection_marked_invalid",
-			timestamp: new Date().toISOString()
-		});
+		// this.logger.register("Warn", "CONNECTION_MANAGER", {
+		// 	service: name,
+		// 	action: "connection_marked_invalid",
+		// 	timestamp: new Date().toISOString()
+		// });
 	}
 
 	/**
@@ -210,12 +189,12 @@ export class ConnectionManager {
 					await connection.destroy();
 				}
 			} catch (error) {
-				this.logger.register("Warn", "CONNECTION_MANAGER", {
-					service: name,
-					action: "disconnect_error",
-					error: error.message,
-					timestamp: new Date().toISOString()
-				});
+				// this.logger.register("Warn", "CONNECTION_MANAGER", {
+				// 	service: name,
+				// 	action: "disconnect_error",
+				// 	error: error.message,
+				// 	timestamp: new Date().toISOString()
+				// });
 			}
 		}
 
@@ -224,11 +203,11 @@ export class ConnectionManager {
 		this.connectionPromises.delete(name);
 		this.connectionStatus.set(name, 'disconnected');
 		
-		this.logger.register("Info", "CONNECTION_MANAGER", {
-			service: name,
-			action: "disconnected",
-			timestamp: new Date().toISOString()
-		});
+		// this.logger.register("Info", "CONNECTION_MANAGER", {
+		// 	service: name,
+		// 	action: "disconnected",
+		// 	timestamp: new Date().toISOString()
+		// });
 	}
 
 	/**
@@ -255,9 +234,9 @@ export class ConnectionManager {
 		}
 
 		await Promise.allSettled(promises);
-		this.logger.register("Info", "CONNECTION_MANAGER", {
-			action: "cleanup_completed",
-			timestamp: new Date().toISOString()
-		});
+		// this.logger.register("Info", "CONNECTION_MANAGER", {
+		// 	action: "cleanup_completed",
+		// 	timestamp: new Date().toISOString()
+		// });
 	}
 }

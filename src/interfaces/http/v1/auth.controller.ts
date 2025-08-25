@@ -1,4 +1,4 @@
-import { Body, Controller, Logger, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Logger, OnModuleDestroy, OnModuleInit, Post, UseGuards } from "@nestjs/common";
 import { UserAuthDTO } from "./dtos/auth.dtos";
 import { RegisterUserUseCase } from "src/application/use-cases/auth/register.usecase";
 import { LoginUseCase } from "src/application/use-cases/auth/login.usecase";
@@ -7,15 +7,26 @@ import { BaseError } from "src/application/erros/base.errors";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { HealthCheckGuard } from "src/infrastructure/health/health.guard";
 import { LokiServiceImpl } from "src/infrastructure/observability/loki/loki.service.impl";
+import { ILoggerRepository } from "src/application/services/logger.repository";
+import { ConnectionManager } from "src/infrastructure/health/connection-manager";
+import { NestLogServiceImpl } from "src/infrastructure/observability/nestLog/nestlog.service.impl";
 
 @Controller()
-export class AuthController {
+export class AuthController implements OnModuleInit{
+
+	private logger: ILoggerRepository | null = null;
 
 	constructor(
 		private readonly createUserUseCase: RegisterUserUseCase,
 		private readonly loginUserUseCase: LoginUseCase,
-		private readonly logger: LokiServiceImpl
+		private readonly connectionManager: ConnectionManager
 	) {}
+
+	async onModuleInit() {
+		
+		this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
+
+	}
 
 	/**
 	 * Endpoint to register a new user.
@@ -57,7 +68,7 @@ export class AuthController {
 	})
 	async registerUser(@Body() body: UserAuthDTO) {
 		try {
-			this.logger.register("Info", "AUTH_CONTROLLER", {
+			this.logger?.register("Info", "AUTH_CONTROLLER", {
 				action: "register_attempt",
 				email: body.email,
 				timestamp: new Date().toISOString()
@@ -66,7 +77,7 @@ export class AuthController {
 			// Execute the registration use case
 			const user = await this.createUserUseCase.execute(body.email, body.password);
 
-			this.logger.register("Info", "AUTH_CONTROLLER", {
+			this.logger?.register("Info", "AUTH_CONTROLLER", {
 				action: "register_success",
 				userId: user.id,
 				email: user.email,
@@ -80,7 +91,7 @@ export class AuthController {
 			});
 
 		} catch (error) {
-			this.logger.register("Error", "AUTH_CONTROLLER", {
+			this.logger?.register("Error", "AUTH_CONTROLLER", {
 				action: "register_failed",
 				email: body.email,
 				error: error instanceof BaseError ? error.id : error.message,
@@ -137,7 +148,7 @@ export class AuthController {
 	})
 	async loginUser(@Body() body: UserAuthDTO) {
 		try {
-			this.logger.register("Info", "AUTH_CONTROLLER", {
+			this.logger?.register("Info", "AUTH_CONTROLLER", {
 				action: "login_attempt",
 				email: body.email,
 				timestamp: new Date().toISOString()
@@ -146,7 +157,7 @@ export class AuthController {
 			// Execute login use case to validate credentials
 			const result = await this.loginUserUseCase.execute(body.email, body.password);
 
-			this.logger.register("Info", "AUTH_CONTROLLER", {
+			this.logger?.register("Info", "AUTH_CONTROLLER", {
 				action: "login_success",
 				email: body.email,
 				timestamp: new Date().toISOString()
@@ -156,7 +167,7 @@ export class AuthController {
 			return new StatusDTO<{ token: string }>("logged_in", { token: result.token });
 
 		} catch (error) {
-			this.logger.register("Error", "AUTH_CONTROLLER", {
+			this.logger?.register("Error", "AUTH_CONTROLLER", {
 				action: "login_failed",
 				email: body.email,
 				error: error instanceof BaseError ? error.id : error.message,

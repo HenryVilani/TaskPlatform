@@ -5,6 +5,7 @@ import { InfoAccountUseCase } from 'src/application/use-cases/account/info.useca
 import { DatabaseModule } from './database.module';
 import { AuthModule } from './auth.module';
 import { ServerModule } from './server.module';
+import { CoreModule } from './core.module';
 
 /**
  * AccountModule
@@ -29,6 +30,7 @@ import { ServerModule } from './server.module';
  */
 @Module({
 	imports: [
+		CoreModule,
 		DatabaseModule,
 		AuthModule,
 		ServerModule

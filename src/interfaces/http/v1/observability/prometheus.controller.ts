@@ -1,4 +1,4 @@
-import { Controller, Get, Res, UseGuards } from "@nestjs/common";
+import { Controller, Get, Res, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ApiExcludeController } from "@nestjs/swagger";
 import { type Response } from "express";
 import { BasicGuard } from "src/infrastructure/auth/basic/basic.guard";
@@ -9,6 +9,7 @@ import { PrometheusService } from "src/infrastructure/observability/prometheus/p
  * This endpoint is excluded from Swagger documentation.
  */
 @Controller('metrics')
+@UseInterceptors()
 @ApiExcludeController()
 export class PrometheusController {
 
@@ -21,7 +22,6 @@ export class PrometheusController {
 	 * Protected by basic authentication via BasicGuard.
 	 */
 	@Get()
-	@UseGuards(BasicGuard)
 	async getMetrics(@Res() res: Response) {
 
 		// Retrieve metrics from PrometheusService
@@ -31,7 +31,7 @@ export class PrometheusController {
 		res.setHeader('Content-Type', 'text/plain');
 
 		// Send metrics to the client
-		res.send(metrics);
+		res.send(metrics)
 
 	}
 }

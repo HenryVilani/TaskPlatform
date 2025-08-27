@@ -82,6 +82,8 @@ export class TaskController implements OnModuleInit {
 
 			return new StatusDTO<TaskDTO>("created", TaskDTO.fromTask(task));
 		} catch (error) {
+
+			console.log(error)
 			const user = request.user as TokenDataDTO;
 			
 			this.logger?.register("Error", "TASK_CONTROLLER", {

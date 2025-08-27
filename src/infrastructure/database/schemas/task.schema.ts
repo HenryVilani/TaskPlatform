@@ -20,8 +20,8 @@ export class TaskSchema {
 	 * Optional job ID for scheduled tasks
 	 * @type {string}
 	 */
-	@Column()
-	jobId: string;
+	@Column({type: "text", nullable: true, default: null})
+	jobId: string | null;
 
 	/**
 	 * Name/title of the task

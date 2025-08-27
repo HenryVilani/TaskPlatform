@@ -33,7 +33,7 @@ import { join } from 'path';
 		MainV1Module,
 
 		ServeStaticModule.forRoot({
-			rootPath: join(__dirname, '..', '..', '..', 'public'),
+			rootPath: join(__dirname, '..', '..', 'public'),
 			serveRoot: '/',
 		}),
 

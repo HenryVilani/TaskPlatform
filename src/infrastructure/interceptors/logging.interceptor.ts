@@ -1,25 +1,35 @@
-import { CallHandler, ExecutionContext, Inject, Injectable, Logger, NestInterceptor } from "@nestjs/common";
+import { CallHandler, ExecutionContext, Inject, Injectable, Logger, NestInterceptor, OnModuleInit } from "@nestjs/common";
 import { Request } from "express";
 import { DateTime } from "luxon";
 import { Observable } from "rxjs";
 import { tap} from "rxjs/operators"
 import { TokenDataDTO } from "src/application/dtos/token.dto";
 import { type ILoggerRepository } from "src/application/services/logger.repository";
+import { NestLogServiceImpl } from "../observability/nestLog/nestlog.service.impl";
+import { ConnectionManager } from "../health/connection-manager";
 
 /**
  * Interceptor that logs HTTP requests and responses.
  * Captures request details, response times, and user information for monitoring.
  */
 @Injectable()
-export class LoggingInterceptor implements NestInterceptor {
+export class LoggingInterceptor implements NestInterceptor, OnModuleInit {
+
+	private logger: ILoggerRepository | null = null;
 
 	/**
 	 * Constructor for LoggingInterceptor.
 	 * @param {ILoggerRepository} loggerService - Service for structured logging
 	 */
 	constructor(
-		@Inject("ILoggerRepository") private readonly loggerService: ILoggerRepository
+		private readonly connectionManager: ConnectionManager
 	) {}
+
+	async onModuleInit() {
+		
+		this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
+
+	}
 
 	/**
 	 * Intercepts HTTP requests to log request and response information.
@@ -41,7 +51,7 @@ export class LoggingInterceptor implements NestInterceptor {
 				next: () => {
 					
 					const responseTime = DateTime.now().diff(now);
-					this.loggerService.register("Info", "REQUEST", {
+					this.logger?.register("Info", "REQUEST", {
 						method,
 						url,
 						responseTime,
@@ -54,7 +64,7 @@ export class LoggingInterceptor implements NestInterceptor {
 				error: (error) => {
 
 					const responseTime = DateTime.now().diff(now);
-					this.loggerService.register("Error", "REQUEST", {
+					this.logger?.register("Error", "REQUEST", {
 						method,
 						url,
 						responseTime,

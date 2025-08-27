@@ -71,7 +71,7 @@ export class ServerController implements OnModuleInit {
 			// Return successful status with health information
 			return new StatusDTO<ServerHealthDTO>("health", serverHealth);
 
-		} catch (error) {
+		}catch (error) {
 			this.logger?.register("Error", "SERVER_CONTROLLER", {
 				action: "health_check_failed",
 				error: error instanceof BaseError ? error.id : error.message,
@@ -81,7 +81,7 @@ export class ServerController implements OnModuleInit {
 			// If the error is a known BaseError, return its id
 			if (error instanceof BaseError) {
 				return new StatusDTO(error.id);
-			} else {
+			}else {
 				// Return generic unknown_error status
 				return new StatusDTO("unknown_error");
 			}

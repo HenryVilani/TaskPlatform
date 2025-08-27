@@ -13,23 +13,16 @@ import { ConnectionManager } from "../health/connection-manager";
  * Captures request details, response times, and user information for monitoring.
  */
 @Injectable()
-export class LoggingInterceptor implements NestInterceptor, OnModuleInit {
-
-	private logger: ILoggerRepository | null = null;
+export class LoggingInterceptor implements NestInterceptor {
 
 	/**
 	 * Constructor for LoggingInterceptor.
 	 * @param {ILoggerRepository} loggerService - Service for structured logging
 	 */
 	constructor(
-		private readonly connectionManager: ConnectionManager
+		private readonly connectionManager: ConnectionManager,
+		@Inject('ILoggerRepository') private readonly loggerService: ILoggerRepository
 	) {}
-
-	async onModuleInit() {
-		
-		this.logger = await this.connectionManager.getConnection<ILoggerRepository>("log", async () => new NestLogServiceImpl())
-
-	}
 
 	/**
 	 * Intercepts HTTP requests to log request and response information.
@@ -51,7 +44,7 @@ export class LoggingInterceptor implements NestInterceptor, OnModuleInit {
 				next: () => {
 					
 					const responseTime = DateTime.now().diff(now);
-					this.logger?.register("Info", "REQUEST", {
+					this.loggerService?.register("Info", "REQUEST", {
 						method,
 						url,
 						responseTime,
@@ -64,7 +57,7 @@ export class LoggingInterceptor implements NestInterceptor, OnModuleInit {
 				error: (error) => {
 
 					const responseTime = DateTime.now().diff(now);
-					this.logger?.register("Error", "REQUEST", {
+					this.loggerService?.register("Error", "REQUEST", {
 						method,
 						url,
 						responseTime,

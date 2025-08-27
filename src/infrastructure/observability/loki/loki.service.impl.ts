@@ -1,202 +1,396 @@
 import LokiTransport from "winston-loki";
 import { createLogger, Logger } from "winston"
-import { HttpErrorCounter } from "../prometheus/prometheus-metrics"
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { ILoggerRepository, LoggerType } from "src/application/services/logger.repository";
 import { LokiBaseServiceImpl } from "./loki.health";
 
 /**
- * LokiServiceImpl
- * 
- * Loki logging service implementation that provides structured logging capabilities
- * through Winston and Loki integration. This is the actual logging service that
- * controllers and other parts of the application use.
- * 
- * Architecture:
- * - Uses LokiBaseServiceImpl for health management and connection handling
- * - Implements ILoggerRepository interface for standardized logging
- * - Provides Winston logger integration with Loki transport
- * 
- * Dependency Resolution:
- * - Depends on LokiBaseServiceImpl (which uses CoreModule services)
- * - No circular dependencies as it doesn't depend on HealthCheckService directly
- * - Safe to inject into controllers and other application services
- * 
- * Logging Levels:
- * - Info: General information, successful operations
- * - Warn: Warning conditions, potential issues
- * - Error: Error conditions, failed operations
+ * LokiServiceImpl with Automatic Retry
+ *
+ * Implements an intelligent fallback strategy:
+ * 1. Always uses NestJS Logger as a fallback
+ * 2. Attempts to connect to Loki in the background
+ * 3. Automatic retry at increasing intervals
+ * 4. Continuous health monitoring
  * 
  * @export
  * @class LokiServiceImpl
  * @implements {ILoggerRepository}
  * @implements {OnModuleInit}
+ * @implements {OnModuleDestroy}
  */
 @Injectable()
-export class LokiServiceImpl implements ILoggerRepository, OnModuleInit {
+export class LokiServiceImpl implements ILoggerRepository, OnModuleInit, OnModuleDestroy {
 
 	/**
-	 * Winston transport used to send logs to Loki
-	 * Managed through LokiBaseServiceImpl for health checking
-	 * @private
-	 * @type {LokiTransport | null}
+	 * Winston logger with Loki (when available)
 	 */
-	private transporter: LokiTransport | null = null;
+	private lokiLogger: Logger | null = null;
 
 	/**
-	 * Standard Winston logger instance
-	 * Created with Loki transport when available
-	 * @private
-	 * @type {Logger | null}
+	 * NestJS Logger (always available)
 	 */
-	private logger: Logger | null = null;
+	private nestLogger = new (require('@nestjs/common')).Logger('LokiService');
 
 	/**
-	 * Constructor for Loki logging service.
-	 * 
-	 * @param {LokiBaseServiceImpl} lokiService - Base Loki service for health management and connections
+	 * Loki connection status
 	 */
+	private lokiStatus: 'disconnected' | 'connecting' | 'connected' | 'error' = 'disconnected';
+
+	/**
+	 * Timer for automatic retry
+	 */
+	private retryTimer: NodeJS.Timeout | null = null;
+
+	/**
+	 * Retry configuration
+	 */
+	private retryConfig = {
+		initialDelay: 5000,
+		maxDelay: 300000,
+		backoffMultiplier: 1.5,
+		maxAttempts: 0,
+		currentAttempt: 0,
+		currentDelay: 5000
+	};
+
+	/**
+	 * Flag to control whether to continue trying
+	 */
+	private shouldRetry = true;
+
 	constructor(
 		private readonly lokiService: LokiBaseServiceImpl
 	) {}
 
-	/**
-	 * Called automatically by NestJS after the module is initialized.
-	 * Sets up the connection to Loki and creates the Winston logger.
-	 * 
-	 * Initialization Process:
-	 * 1. Attempts to get healthy Loki transport from LokiBaseServiceImpl
-	 * 2. Creates Winston logger with Loki transport if available
-	 * 3. Falls back gracefully if Loki is not available
-	 * 
-	 * Error Handling:
-	 * - Continues without throwing if Loki is unavailable
-	 * - Allows application to start even with logging issues
-	 * - Provides fallback behavior for resilience
-	 * 
-	 * @returns {Promise<void>}
-	 */
 	async onModuleInit() {
-		console.log('[LokiService] Initializing Loki logging service...');
+		this.nestLogger.log('Initializing Loki Service with Automatic Retry...');
+		
+		this.nestLogger.log('NestJS Logger initialized (active fallback)');
 
-		try {
-			// Get Loki transport from the health service
-			const transport = await this.lokiService.getService<LokiTransport>();
-			
-			if (!transport) {
-				console.warn('[LokiService] Loki transport not available, logging will be limited');
-				this.transporter = null;
-				this.logger = null;
-				return;
-			}
+		await this.attemptLokiConnection();
 
-			// Set up Winston logger with Loki transport
-			this.transporter = transport;
-			this.logger = createLogger({
-				transports: [this.transporter]
-			});
-
-			console.log('[LokiService] Loki logging service initialized successfully');
-
-		} catch (error) {
-			console.error('[LokiService] Failed to initialize Loki logging service:', error.message);
-			this.transporter = null;
-			this.logger = null;
-		}
+		this.startBackgroundRetry();
 	}
 
 	/**
-	 * Registers a log message with the logger.
-	 * Supports different log levels and provides fallback logging.
-	 * 
-	 * Behavior:
-	 * - Uses Winston/Loki logger if available
-	 * - Falls back to console logging if Loki is unavailable
-	 * - Continues without throwing errors to maintain application stability
-	 * 
-	 * Log Levels:
-	 * - Info: General information and successful operations
-	 * - Warn: Warning conditions that should be noted
-	 * - Error: Error conditions that need attention
-	 * 
-	 * @param {LoggerType} type - The log level (Info, Warn, Error)
-	 * @param {string} id - A unique identifier or title for the log entry
-	 * @param {object} data - The payload or context object to log
+	 * Cleanup do módulo
+	 */
+	async onModuleDestroy() {
+		this.shouldRetry = false;
+		
+		if (this.retryTimer) {
+			clearTimeout(this.retryTimer);
+			this.retryTimer = null;
+		}
+
+		if (this.lokiLogger) {
+			try {
+				// Winston não tem método close direto, mas podemos remover transports
+				this.lokiLogger.clear();
+				this.lokiLogger = null;
+			} catch (error) {
+				this.nestLogger.error(`Error to close Loki logger: ${error.message}`);
+			}
+		}
+
+		this.nestLogger.log('Loki Service Completed');
+	}
+
+	/**
+	 * Main method for logging
+	 * Always works, using Loki when available or NestJS as a fallback
 	 */
 	register(type: LoggerType, id: string, data: object) {
-		// Primary logging through Winston/Loki if available
-		if (this.logger) {
-			try {
-				switch (type) {
-					case "Info":
-						this.logger.info(id, data);
-						break;
-					case "Warn":
-						this.logger.warn(id, data);
-						break;
-					case "Error":
-						this.logger.error(id, data);
-						break;
-					default:
-						console.warn(`[LokiService] Unknown log type: ${type}`);
-						return;
-				}
-				return;
-			} catch (error) {
-				console.error('[LokiService] Failed to log to Loki, falling back to console:', error.message);
-			}
-		}
+		const logMessage = { id, ...data, timestamp: new Date().toISOString() };
 
-		// Fallback to console logging
-		const logMessage = `[${type}] ${id}: ${JSON.stringify(data)}`;
+		this.logToNest(type, id, logMessage);
+
+		if (this.lokiStatus === 'connected' && this.lokiLogger) {
+
+			try {
+				this.logToLoki(type, id, logMessage);
+			} catch (error) {
+				this.nestLogger.warn(`Failed to log in Loki: ${error.message}`);
+				this.handleLokiError(error);
+			}
+
+		}
+	}
+
+	/**
+	 * Log to NestJS (always works)
+	 */
+	private logToNest(type: LoggerType, id: string, data: any) {
+		const message = `${id}: ${JSON.stringify(data)}`;
+		
 		switch (type) {
 			case "Info":
-				console.log(logMessage);
+				this.nestLogger.log(message);
 				break;
 			case "Warn":
-				console.warn(logMessage);
+				this.nestLogger.warn(message);
 				break;
 			case "Error":
-				console.error(logMessage);
+				this.nestLogger.error(message);
 				break;
 			default:
-				console.log(logMessage);
+				this.nestLogger.log(message);
 		}
 	}
 
 	/**
-	 * Checks if the Loki logger is currently available and functional.
-	 * Useful for conditional logging or health checks.
-	 * 
-	 * @returns {boolean} True if logger is available, false otherwise
+	 * Log to Loki (when available)
 	 */
-	isAvailable(): boolean {
-		return this.logger !== null && this.transporter !== null;
+	private logToLoki(type: LoggerType, id: string, data: any) {
+		if (!this.lokiLogger) return;
+
+		switch (type) {
+			case "Info":
+				this.lokiLogger.info(id, data);
+				break;
+			case "Warn":
+				this.lokiLogger.warn(id, data);
+				break;
+			case "Error":
+				this.lokiLogger.error(id, data);
+				break;
+			default:
+				this.lokiLogger.info(id, data);
+		}
 	}
 
 	/**
-	 * Attempts to reinitialize the Loki connection.
-	 * Useful for recovery scenarios when Loki becomes available again.
-	 * 
-	 * @returns {Promise<boolean>} True if reinitialization was successful
+	 * Try to establish a connection with Loki
 	 */
-	async reinitialize(): Promise<boolean> {
-		console.log('[LokiService] Attempting to reinitialize Loki connection...');
-		
-		try {
-			await this.onModuleInit();
-			const success = this.isAvailable();
-			
-			if (success) {
-				console.log('[LokiService] Loki connection reinitialized successfully');
-			} else {
-				console.warn('[LokiService] Loki connection reinitialization failed');
-			}
-			
-			return success;
-		} catch (error) {
-			console.error('[LokiService] Error during reinitialization:', error.message);
+	private async attemptLokiConnection(): Promise<boolean> {
+		if (this.lokiStatus === 'connecting') {
 			return false;
 		}
+
+		this.lokiStatus = 'connecting';
+		this.retryConfig.currentAttempt++;
+
+		this.nestLogger.log(`Attempting ${this.retryConfig.currentAttempt} to connect to Loki...`);
+
+		try {
+
+			const healthStatus = await this.lokiService.isHealth();
+			if (healthStatus !== "Health") {
+				throw new Error('Loki service is not healthy');
+			}
+
+			const transport = await this.lokiService.getService<LokiTransport>();
+			if (!transport) {
+				throw new Error('Failed to get Loki transport');
+			}
+
+			this.lokiLogger = createLogger({
+				transports: [transport]
+			});
+
+			await this.testLokiConnection();
+
+			this.lokiStatus = 'connected';
+			this.retryConfig.currentAttempt = 0;
+			this.retryConfig.currentDelay = this.retryConfig.initialDelay;
+
+			this.nestLogger.log('Connection with Loki successfully established!');
+			
+			this.register("Info", "LOKI_CONNECTION", {
+				action: "connection_successful",
+				attempt: this.retryConfig.currentAttempt,
+				timestamp: new Date().toISOString()
+			});
+
+			return true;
+
+		} catch (error) {
+			this.lokiStatus = 'error';
+			this.lokiLogger = null;
+
+			this.nestLogger.warn(`Failed to connect to Loki (attempt ${this.retryConfig.currentAttempt}): ${error.message}`);
+			
+			return false;
+		}
+	}
+
+	/**
+	 * Test the connection with Loki by making a test log
+	 */
+	private async testLokiConnection(): Promise<void> {
+		if (!this.lokiLogger) {
+			throw new Error('Loki logger not available');
+		}
+
+		return new Promise((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				reject(new Error('Loki connection test timeout'));
+			}, 5000);
+
+			try {
+				this.lokiLogger!.info('LOKI_TEST', {
+					action: 'connection_test',
+					timestamp: new Date().toISOString()
+				});
+				
+				clearTimeout(timeout);
+				resolve();
+			} catch (error) {
+				clearTimeout(timeout);
+				reject(error);
+			}
+		});
+	}
+
+	/**
+	 * Starts retry process in background
+	 */
+	private startBackgroundRetry() {
+		if (!this.shouldRetry) return;
+
+		if (this.lokiStatus === 'connected') {
+			this.scheduleHealthCheck();
+		} else {
+
+			this.scheduleNextAttempt();
+		}
+	}
+
+	/**
+	 * Schedule periodic health checks
+	 */
+	private scheduleHealthCheck() {
+		if (!this.shouldRetry) return;
+
+		this.retryTimer = setTimeout(async () => {
+			try {
+				const isHealthy = await this.lokiService.isHealth();
+				
+				if (isHealthy === "Health") {
+					this.scheduleHealthCheck();
+				} else {
+					this.nestLogger.warn('Connection with Loki lost, returning to retry mode...');
+					this.lokiStatus = 'disconnected';
+					this.lokiLogger = null;
+					this.startBackgroundRetry();
+				}
+			} catch (error) {
+				this.handleLokiError(error);
+			}
+		}, 30000);
+	}
+
+	/**
+	 * Schedule next connection attempt
+	 */
+	private scheduleNextAttempt() {
+		if (!this.shouldRetry) return;
+
+		const delay = this.calculateNextDelay();
+
+		this.nestLogger.log(`Next connection attempt with Loki in ${delay/1000}s`);
+
+		this.retryTimer = setTimeout(async () => {
+			const success = await this.attemptLokiConnection();
+			
+			if (success) {
+				this.startBackgroundRetry();
+			}else {
+				this.scheduleNextAttempt();
+			}
+		}, delay);
+	}
+
+	/**
+	 * Calculates delay for next attempt (exponential backoff)
+	 */
+	private calculateNextDelay(): number {
+		const delay = Math.min(
+			this.retryConfig.currentDelay,
+			this.retryConfig.maxDelay
+		);
+
+		this.retryConfig.currentDelay = Math.min(
+			this.retryConfig.currentDelay * this.retryConfig.backoffMultiplier,
+			this.retryConfig.maxDelay
+		);
+
+		return delay;
+	}
+
+	/**
+	 * Handles Loki errors
+	 */
+	private handleLokiError(error: Error) {
+		this.lokiStatus = 'error';
+		this.lokiLogger = null;
+
+		this.nestLogger.error(`Loki error: ${error.message}`);
+		
+		if (this.shouldRetry) {
+			setTimeout(() => {
+				this.startBackgroundRetry();
+			}, 1000);
+		}
+	}
+
+	/**
+	 * Force immediate reconnection attempt
+	 */
+	async forceReconnect(): Promise<boolean> {
+		this.nestLogger.log('Forcing reconnection with Loki...');
+		
+		if (this.retryTimer) {
+			clearTimeout(this.retryTimer);
+			this.retryTimer = null;
+		}
+
+		this.lokiStatus = 'disconnected';
+		this.retryConfig.currentDelay = this.retryConfig.initialDelay;
+
+		const success = await this.attemptLokiConnection();
+		
+		if (success) {
+			this.startBackgroundRetry();
+		} else {
+			this.scheduleNextAttempt();
+		}
+
+		return success;
+	}
+
+	/**
+	 * Current service status
+	 */
+	getStatus() {
+		return {
+			lokiStatus: this.lokiStatus,
+			nestLoggerAvailable: true,
+			currentAttempt: this.retryConfig.currentAttempt,
+			nextRetryIn: this.retryTimer ? 'scheduled' : 'not-scheduled',
+			lokiAvailable: this.lokiStatus === 'connected'
+		};
+	}
+
+	/**
+	 * Check if Loki is available
+	 */
+	isLokiAvailable(): boolean {
+		return this.lokiStatus === 'connected' && this.lokiLogger !== null;
+	}
+
+	/**
+	 * Always returns true because NestJS Logger always works
+	 */
+	isAvailable(): boolean {
+		return true;
+	}
+
+	/**
+	 * Reboot (interface compatibility)
+	 */
+	async reinitialize(): Promise<boolean> {
+		return await this.forceReconnect();
 	}
 }

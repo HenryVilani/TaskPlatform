@@ -251,7 +251,6 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 			
 			// CRÍTICO: Configurações para BullMQ
 			maxRetriesPerRequest: null, // BullMQ gerencia os retries
-			enableOfflineQueue: false, // Evita acúmulo de comandos
 			
 			// Sem reconexão automática - BullMQ gerencia isso
 			reconnectOnError: () => false,

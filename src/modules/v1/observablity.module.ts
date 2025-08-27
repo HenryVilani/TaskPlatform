@@ -66,6 +66,7 @@ import { CoreModule } from './core.module';
 	],
 	exports: [
 		"ILoggerRepository",
+		LokiServiceImpl,
 		LokiBaseServiceImpl
 	],
 })

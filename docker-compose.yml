@@ -37,7 +37,7 @@ services:
 
   redis:
     container_name: redis
-    image: redis:7
+    image: redis
     networks:
       - backend-network
 
@@ -87,7 +87,7 @@ services:
       - redis
     
   postgres-exporter:
-    image: bitnami/postgres-exporter:latest
+    image: bitnami/postgres-exporter
     container_name: postgres-exporter
     env_file:
       - .env

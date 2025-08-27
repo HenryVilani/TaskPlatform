@@ -60,7 +60,6 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 	 */
 	constructor(
 		private readonly moduleRef: ModuleRef,
-		private readonly lazyModuleLoader: LazyModuleLoader
 	) {}
 
 	/**
@@ -70,9 +69,7 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 	 * @returns {Promise<void>}
 	 */
 	async onModuleInit() {
-		console.log('[LokiBaseService] Initializing with lazy loading...');
 		
-		// Defer service loading to avoid circular dependencies
 		setTimeout(() => {
 			this.loadServicesLazily();
 		}, 100);
@@ -113,22 +110,11 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 		console.log('[LokiBaseService] Attempting lazy service loading...');
 
 		try {
-			// Strategy 1: Try to get services from current module context
+			
 			await this.loadFromCurrentContext();
 			
-			// Strategy 2: If failed, try lazy module loading
-			if (!this.healthCheckService || !this.connectionManager) {
-				await this.loadFromLazyModule();
-			}
-
-			// Strategy 3: If still failed, try global application context
-			if (!this.healthCheckService || !this.connectionManager) {
-				await this.loadFromGlobalContext();
-			}
-
 			this.servicesLoaded = true;
 
-			// Register with health check service if available
 			if (this.healthCheckService) {
 				this.healthCheckService.register(this.connectionName, this);
 				console.log('[LokiBaseService] Successfully registered with HealthCheckService');
@@ -138,14 +124,10 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 
 		} catch (error) {
 			console.error('[LokiBaseService] Failed to load services lazily:', error.message);
-			this.servicesLoaded = true; // Mark as loaded to avoid repeated attempts
+			this.servicesLoaded = true;
 		}
 	}
 
-	/**
-	 * Strategy 1: Load services from current module context
-	 * @private
-	 */
 	private async loadFromCurrentContext(): Promise<void> {
 		try {
 			// Try to get services from current module context
@@ -155,57 +137,6 @@ export class LokiBaseServiceImpl implements IHealthService, OnModuleInit, OnModu
 			console.log('[LokiBaseService] Loaded services from current context');
 		} catch (error) {
 			console.log('[LokiBaseService] Current context loading failed, trying next strategy...');
-		}
-	}
-
-	/**
-	 * Strategy 2: Load services using lazy module loader
-	 * @private
-	 */
-	private async loadFromLazyModule(): Promise<void> {
-		try {
-			// Dynamically import CoreModule
-			const { CoreModule } = await import('src/modules/v1/core.module.js');
-			
-			// Load the module lazily
-			const moduleRef = await this.lazyModuleLoader.load(() => CoreModule);
-			
-			// Get services from the loaded module
-			if (!this.healthCheckService) {
-				this.healthCheckService = moduleRef.get('HealthCheckService', { strict: false });
-			}
-			
-			if (!this.connectionManager) {
-				this.connectionManager = moduleRef.get('ConnectionManager', { strict: false });
-			}
-			
-			console.log('[LokiBaseService] Loaded services from lazy module');
-		} catch (error) {
-			console.log('[LokiBaseService] Lazy module loading failed, trying next strategy...');
-		}
-	}
-
-	/**
-	 * Strategy 3: Load services from global application context
-	 * @private
-	 */
-	private async loadFromGlobalContext(): Promise<void> {
-		try {
-			// Try to get services from global context using class references
-			const { HealthCheckService } = await import("src/infrastructure/health/health-check.service.js");
-			const { ConnectionManager } = await import('src/infrastructure/health/connection-manager.js');
-			
-			if (!this.healthCheckService) {
-				this.healthCheckService = this.moduleRef.get(HealthCheckService, { strict: false });
-			}
-			
-			if (!this.connectionManager) {
-				this.connectionManager = this.moduleRef.get(ConnectionManager, { strict: false });
-			}
-			
-			console.log('[LokiBaseService] Loaded services from global context');
-		} catch (error) {
-			console.warn('[LokiBaseService] All service loading strategies failed');
 		}
 	}
 

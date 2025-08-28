@@ -12,9 +12,8 @@ import { ILoggerRepository } from "src/application/services/logger.repository";
 import { NestLogServiceImpl } from "src/infrastructure/observability/nestLog/nestlog.service.impl";
 import { ConnectionManager } from "src/infrastructure/health/connection-manager";
 
-
 /**
- * BullMQ-based Task Scheduler melhorado com health check integration
+ * Enhanced BullMQ-based Task Scheduler with health check integration
  * Implements ISchedulerRepository to integrate with domain logic.
  */
 @Injectable()
@@ -35,7 +34,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	}
 
 	/**
-	 * Schedule a task notification usando BullMQ apenas se Redis estiver healthy
+	 * Schedules a task notification using BullMQ only if Redis is healthy
 	 */
 	async schedule(task: Task): Promise<void> {
 		if (!task.notifyAt) return;
@@ -83,12 +82,11 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 				error: error.message,
 				timestamp: new Date().toISOString()
 			});
-			// Não throw - deixa aplicação continuar funcionando
 		}
 	}
 
 	/**
-	 * Remove scheduled job apenas se Redis estiver healthy
+	 * Removes scheduled job only if Redis is healthy
 	 */
 	async removeSchedule(jobId: string): Promise<void> {
 		try {
@@ -124,7 +122,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	}
 
 	/**
-	 * Get scheduled task apenas se Redis estiver healthy
+	 * Gets scheduled task only if Redis is healthy
 	 */
 	async getSchedule(jobId: string): Promise<Task | null> {
 		try {
@@ -146,7 +144,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	}
 
 	/**
-	 * Update scheduled task apenas se Redis estiver healthy
+	 * Updates scheduled task only if Redis is healthy
 	 */
 	async updateSchedule(task: Task): Promise<void> {
 		if (!task.jobId) return;
@@ -168,21 +166,21 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	}
 
 	/**
-	 * Obtém queue apenas se Redis estiver healthy
+	 * Gets queue only if Redis is healthy
 	 */
 	private async getHealthyQueue(): Promise<Queue<Job> | null> {
-		// Se já existe queue, verifica se Redis ainda está healthy
+		// If queue already exists, check if Redis is still healthy
 		if (this.queue) {
 			const isRedisHealthy = await this.redisService.isHealth();
 			if (isRedisHealthy === "Health") {
 				return this.queue;
 			} else {
-				// Redis ficou unhealthy, remove queue
+				// Redis became unhealthy, remove queue
 				await this.closeQueue();
 			}
 		}
 
-		// Tenta criar nova queue se Redis estiver healthy
+		// Try to create new queue if Redis is healthy
 		const redis = await this.redisService.getHealthyConnection();
 		if (!redis) {
 			return null;
@@ -197,14 +195,14 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 				}
 			});
 
-			// Event listeners para monitoramento
+			// Event listeners for monitoring
 			this.queue.on('error', (error) => {
 				this.logger?.register("Error", "BULLMQ_SCHEDULER", {
 					action: "queue_error",
 					error: error.message,
 					timestamp: new Date().toISOString()
 				});
-				this.closeQueue(); // Remove queue com erro
+				this.closeQueue(); // Remove queue with error
 			});
 
 			this.logger?.register("Info", "BULLMQ_SCHEDULER", {
@@ -224,7 +222,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 	}
 
 	/**
-	 * Fecha queue atual
+	 * Closes current queue
 	 */
 	private async closeQueue(): Promise<void> {
 		if (this.queue) {
@@ -258,7 +256,7 @@ export class BullMQTaskScheduler implements ISchedulerRepository, OnModuleInit, 
 			timestamp: new Date().toISOString()
 		});
 		
-		// Não inicializa queue aqui - será criada on-demand quando Redis estiver healthy
+		// Don't initialize queue here - it will be created on-demand when Redis is healthy
 		await this.workerService.onModuleInit();
 		
 		this.logger?.register("Info", "BULLMQ_SCHEDULER", {

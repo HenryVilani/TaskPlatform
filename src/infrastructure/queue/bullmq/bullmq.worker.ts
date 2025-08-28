@@ -8,8 +8,8 @@ import { ILoggerRepository } from "src/application/services/logger.repository";
 import { NestLogServiceImpl } from "src/infrastructure/observability/nestLog/nestlog.service.impl";
 
 /**
- * BullMQ Worker Service melhorado com health check integration
- * Publishes task notifications to Redis channels apenas se Redis estiver healthy
+ * Enhanced BullMQ Worker Service with health check integration
+ * Publishes task notifications to Redis channels only if Redis is healthy
  */
 @Injectable()
 export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
@@ -24,7 +24,7 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 	) {}
 
 	/**
-	 * Lifecycle hook - inicializa worker apenas se Redis estiver healthy
+	 * Lifecycle hook - initializes worker only if Redis is healthy
 	 */
 	async onModuleInit() {
 
@@ -38,14 +38,14 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	/**
-	 * Lifecycle hook - cleanup do worker
+	 * Lifecycle hook - worker cleanup
 	 */
 	async onModuleDestroy() {
 		await this.closeWorker();
 	}
 
 	/**
-	 * Inicializa worker apenas se Redis estiver healthy
+	 * Initializes worker only if Redis is healthy
 	 */
 	private async initializeWorker() {
 		try {
@@ -59,7 +59,7 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 				return;
 			}
 
-			// Cria worker com configurações otimizadas
+			// Creates worker with optimized configurations
 			this.worker = new Worker("tasks", async (job: Job<Task>) => {
 				await this.processTaskNotification(job);
 			}, {
@@ -113,19 +113,19 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	/**
-	 * Processa notificação de task com verificação de health
+	 * Processes task notification with health verification
 	 */
 	private async processTaskNotification(job: Job<Task>): Promise<void> {
 		const task = job.data;
 
 		try {
-			// Verifica se Redis ainda está healthy antes de publicar
+			// Verifies if Redis is still healthy before publishing
 			const redis = await this.redisService.getHealthyConnection();
 			if (!redis) {
 				throw new Error('Redis connection unavailable');
 			}
 
-			// Publica notificação no canal do usuário
+			// Publishes notification to user channel
 			const channel = `user:${task.user.id}:notifications`;
 			const message = JSON.stringify(task);
 
@@ -152,13 +152,12 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 				timestamp: new Date().toISOString()
 			});
 			
-			// Re-throw para BullMQ fazer retry
 			throw error;
 		}
 	}
 
 	/**
-	 * Fecha worker atual
+	 * Closes current worker
 	 */
 	private async closeWorker(): Promise<void> {
 		if (this.worker) {
@@ -181,7 +180,7 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	/**
-	 * Força restart do worker (útil para reconexões)
+	 * Forces worker restart (useful for reconnections)
 	 */
 	async restartWorker(): Promise<void> {
 		this.logger?.register("Info", "BULLMQ_WORKER", {
@@ -191,14 +190,14 @@ export class BullMQWorkerService implements OnModuleInit, OnModuleDestroy {
 		
 		await this.closeWorker();
 		
-		// Wait um pouco antes de tentar reconectar
+		// Wait a bit before trying to reconnect
 		await new Promise(resolve => setTimeout(resolve, 2000));
 		
 		await this.initializeWorker();
 	}
 
 	/**
-	 * Verifica se worker está ativo
+	 * Checks if worker is active
 	 */
 	isWorkerActive(): boolean {
 		return this.worker !== null && !this.worker.closing;

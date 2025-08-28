@@ -11,7 +11,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	private readonly connectionName = "redis";
 	private logger: ILoggerRepository | null = null;
 	private isInitialized = false;
-	private redisInstance: Redis | null = null; // Cache da instância principal
+	private redisInstance: Redis | null = null;
 
 	constructor(
 		private readonly healthCheck: HealthCheckService,
@@ -28,8 +28,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 		this.isInitialized = true;
 
 		this.logRedisConfiguration();
-		
-		// Inicializa conexão principal na inicialização do módulo
+
 		await this.initializePrimaryConnection();
 	}
 
@@ -38,7 +37,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	}
 
 	/**
-	 * Inicializa conexão principal que será compartilhada
+	 * Initializes the primary Redis connection
 	 */
 	private async initializePrimaryConnection(): Promise<void> {
 		try {
@@ -65,7 +64,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	}
 
 	/**
-	 * Cleanup de todas as conexões
+	 * Cleans up all Redis connections
 	 */
 	private async cleanupConnections(): Promise<void> {
 		if (this.redisInstance) {
@@ -84,6 +83,9 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 		await this.connectionManager.disconnect(this.connectionName);
 	}
 
+	/**
+	 * Logs current Redis configuration
+	 */
 	private logRedisConfiguration(): void {
 		const config = this.getRedisConfig();
 		this.logger?.register("Info", "REDIS_CONFIG", {
@@ -96,7 +98,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	}
 
 	/**
-	 * Configuração Redis otimizada para BullMQ
+	 * Gets Redis configuration from environment variables
 	 */
 	private getRedisConfig() {
 		return {
@@ -108,7 +110,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	}
 
 	/**
-	 * Health check simplificado usando conexão principal
+	 * Checks if Redis service is healthy
 	 */
 	async isHealth(): Promise<HealthServiceStatus> {
 		if (!this.isInitialized) {
@@ -116,7 +118,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 		}
 
 		try {
-			// Se não tem conexão principal, tenta criar
+
 			if (!this.redisInstance || this.redisInstance.status !== 'ready') {
 				await this.initializePrimaryConnection();
 			}
@@ -125,7 +127,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 				return "UnHealth";
 			}
 
-			// Teste ping simples
+			// Simple ping test
 			const result = await Promise.race([
 				this.redisInstance.ping(),
 				new Promise<never>((_, reject) => 
@@ -142,14 +144,13 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 				timestamp: new Date().toISOString()
 			});
 			
-			// Reset conexão em caso de erro
 			this.redisInstance = null;
 			return "UnHealth";
 		}
 	}
 
 	/**
-	 * Retorna serviço Redis se estiver healthy
+	 * Gets Redis service instance if healthy
 	 */
 	async getService<T>(): Promise<T | null> {
 		const healthStatus = await this.isHealth();
@@ -162,8 +163,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	}
 
 	/**
-	 * CRÍTICO: Método específico para BullMQ que cria NOVA conexão
-	 * BullMQ precisa de sua própria conexão para evitar conflitos
+	 * Gets a healthy Redis connection for external usage
 	 */
 	async getHealthyConnection(): Promise<Redis | null> {
 		try {
@@ -172,7 +172,6 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 				return null;
 			}
 
-			// Para BullMQ, SEMPRE cria uma nova conexão independente
 			this.logger?.register("Info", "REDIS_SERVICE", {
 				action: "creating_bullmq_connection",
 				timestamp: new Date().toISOString()
@@ -191,7 +190,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	}
 
 	/**
-	 * Cria conexão Redis estável para uso geral
+	 * Creates a stable Redis connection for general usage
 	 */
 	private async createStableRedisConnection(): Promise<Redis> {
 		const config = this.getRedisConfig();
@@ -202,37 +201,31 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 			password: config.password,
 			db: config.db,
 			
-			// Configurações para estabilidade
 			family: 4,
 			connectTimeout: 10000,
 			commandTimeout: 5000,
-			lazyConnect: false, // Conecta imediatamente
-			
-			// Configurações de retry conservadoras
+			lazyConnect: false,
 
 			maxRetriesPerRequest: 3,
 			
-			// Configurações de reconexão para conexão principal
 			reconnectOnError(err) {
 				const targetError = 'READONLY';
 				return err.message.includes(targetError);
 			},
 			
-			// Keep-alive para manter conexão estável
 			keepAlive: 30000,
 			enableAutoPipelining: true,
 		});
 
 		this.setupRedisEventListeners(redis, "MAIN");
 		
-		// Aguarda conexão estar pronta
 		await this.waitForRedisReady(redis);
 		
 		return redis;
 	}
 
 	/**
-	 * Cria conexão específica para BullMQ com configurações otimizadas
+	 * Creates a Redis connection optimized for BullMQ usage
 	 */
 	private async createBullMQRedisConnection(): Promise<Redis> {
 		const config = this.getRedisConfig();
@@ -243,32 +236,28 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 			password: config.password,
 			db: config.db,
 			
-			// Configurações ESPECÍFICAS para BullMQ
 			family: 4,
 			connectTimeout: 10000,
 			commandTimeout: 5000,
 			lazyConnect: false,
 			
-			// CRÍTICO: Configurações para BullMQ
-			maxRetriesPerRequest: null, // BullMQ gerencia os retries
+			maxRetriesPerRequest: null,
 			
-			// Sem reconexão automática - BullMQ gerencia isso
 			reconnectOnError: () => false,
-			// Configurações de performance para BullMQ
+
 			enableAutoPipelining: false,
-			keepAlive: 0, // BullMQ gerencia keep-alive
+			keepAlive: 0,
 		});
 
 		this.setupRedisEventListeners(redis, "BULLMQ");
-		
-		// Aguarda conexão estar pronta
+
 		await this.waitForRedisReady(redis);
 		
 		return redis;
 	}
 
 	/**
-	 * Aguarda Redis ficar ready
+	 * Waits for Redis connection to be ready
 	 */
 	private async waitForRedisReady(redis: Redis): Promise<void> {
 		return new Promise((resolve, reject) => {
@@ -295,7 +284,7 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	}
 
 	/**
-	 * Configura event listeners padronizados
+	 * Sets up event listeners for Redis connection monitoring
 	 */
 	private setupRedisEventListeners(redis: Redis, type: string): void {
 		redis.on("error", (err) => {
@@ -352,12 +341,12 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 	}
 
 	/**
-	 * Testa conexão manualmente
+	 * Tests Redis connection with basic operations
 	 */
 	async testConnection(): Promise<boolean> {
 		try {
 			const config = this.getRedisConfig();
-			console.log('🔍 Testando conexão Redis...', config);
+			console.log('🔍 Testing Redis connection...', config);
 
 			const testRedis = new Redis({
 				host: config.host,
@@ -371,28 +360,28 @@ export class RedisServiceImpl implements IHealthService, OnModuleInit, OnModuleD
 			});
 
 			await testRedis.connect();
-			console.log('✅ Conectado!');
+			console.log('Connected!');
 
 			const pingResult = await testRedis.ping();
-			console.log('📡 PING:', pingResult);
+			console.log('PING:', pingResult);
 
 			await testRedis.set('test:connection', 'ok', 'EX', 10);
 			const value = await testRedis.get('test:connection');
-			console.log('💾 SET/GET:', value);
+			console.log('SET/GET:', value);
 
 			await testRedis.quit();
-			console.log('🔌 Desconectado');
+			console.log('Disconnected');
 
 			return true;
 
 		} catch (error) {
-			console.error('❌ Erro:', error.message);
+			console.error('Error:', error.message);
 			return false;
 		}
 	}
 
 	/**
-	 * Reset forçado de todas as conexões
+	 * Resets all Redis connections
 	 */
 	async resetConnection(): Promise<void> {
 		this.logger?.register("Info", "REDIS_SERVICE", {

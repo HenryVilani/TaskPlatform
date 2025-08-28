@@ -26,4 +26,4 @@ TaskPlatform é um projeto backend de uma API REST para uma plataforma de tarefa
 
 Para acessar a documentação: http://localhost:8080/api-docs/v1
 
-Para acessar o grafana: http://localhost:3080/
+Para acessar o grafana: http://localhost:3000/
